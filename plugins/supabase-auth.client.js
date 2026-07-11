@@ -1,53 +1,29 @@
 // plugins/supabase-auth.client.js
 export default defineNuxtPlugin(async () => {
-  const supabase = useSupabaseClient()
-  const userStore = useUserStore()
+  console.log('🔄 Supabase auth plugin loading...')
   
-  // استعادة الجلسة عند تحميل الصفحة
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  if (session) {
-    console.log('🔄 استعادة الجلسة:', session.user.email)
-    userStore.setSession(session)
+  try {
+    const userStore = useUserStore()
     
-    // جلب الدور من user_profiles
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('email', session.user.email)
-      .maybeSingle()
+    // ✅ استخدم الـ initialize من الـ store مباشرة
+    await userStore.initialize()
     
-    if (profile) {
-      // تحديث المستخدم مع الدور باستخدام action من الـ store
-      userStore.updateUserRole(profile.role)
-      console.log('✅ تم استعادة الدور:', profile.role)
-    }
-  }
-  
-  // مراقبة تغييرات الجلسة
-  supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔄 تغيير حالة auth:', event)
+    console.log('✅ Supabase auth plugin initialized successfully')
     
-    if (event === 'SIGNED_IN' && session) {
-      userStore.setSession(session)
-      
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('email', session.user.email)
-        .maybeSingle()
-      
-      if (profile) {
-        userStore.updateUserRole(profile.role)
-        console.log('✅ تم تحديث الدور:', profile.role)
+  } catch (error) {
+    console.error('❌ Error initializing auth plugin:', error?.message || error)
+    
+    // ✅ لو فشل، حاول تاني بعد شوية
+    setTimeout(async () => {
+      try {
+        const userStore = useUserStore()
+        if (!userStore.initialized) {
+          await userStore.initialize()
+          console.log('✅ Supabase auth plugin initialized on retry')
+        }
+      } catch (retryError) {
+        console.error('❌ Retry failed:', retryError?.message || retryError)
       }
-      
-      // إعادة تحميل الصفحة الحالية لتحديث UI (حل سريع)
-      // يمكنك إزالة هذا السطر إذا كان الكود يعمل بدون ريفريش
-      // window.location.reload()
-      
-    } else if (event === 'SIGNED_OUT') {
-      userStore.clearAuth()
-    }
-  })
+    }, 2000)
+  }
 })
