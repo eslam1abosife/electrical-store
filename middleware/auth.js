@@ -1,6 +1,7 @@
 // middleware/auth.js
+import { supabase } from '~/lib/supabase' // ✅ نقلت الـ import بره
+
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  import { supabase } from '~/lib/supabase'
   const userStore = useUserStore()
   
   console.log('========== AUTH MIDDLEWARE (Frontend) ==========')

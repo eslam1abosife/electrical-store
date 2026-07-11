@@ -1,13 +1,16 @@
 export default defineNuxtConfig({
-  ssr: false, // ✅ تأكد من وجودها
+  ssr: false,
   
   devtools: { enabled: true },
 
-  modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt"],
+  modules: [
+    "@nuxtjs/tailwindcss", 
+    "@pinia/nuxt"  // ✅ استخدم الـ module فقط
+  ],
 
   css: ["~/assets/css/main.css"],
 
-  // ✅ أضف إعدادات Pinia
+  // ✅ إعدادات Pinia
   pinia: {
     storesDirs: ['./stores/**'],
   },
@@ -18,23 +21,9 @@ export default defineNuxtConfig({
     { path: "~/components/fans/modals", pathPrefix: false },
   ],
 
-  vite: {
-    optimizeDeps: {
-      include: [
-        "@vue/devtools-core",
-        "@vue/devtools-kit",
-        "date-fns",
-        "date-fns/locale",
-        "swiper/modules",
-        "swiper/vue",
-        "pinia-plugin-persistedstate", // ✅ أضف ده
-      ],
-    },
-  },
-
   nitro: {
     preset: 'vercel',
   },
 
   compatibilityDate: "2025-06-01",
-});
+})

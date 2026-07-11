@@ -1,6 +1,7 @@
 // middleware/admin-only.js
+import { supabase } from '~/lib/supabase' // ✅ نقلت الـ import بره الدالة
+
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  import { supabase } from '~/lib/supabase'
   const userStore = useUserStore()
   
   console.log('========== AUTH MIDDLEWARE ==========')

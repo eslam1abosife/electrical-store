@@ -107,6 +107,7 @@
 
 <script setup>
 import { supabase } from '~/lib/supabase';
+
 const router = useRouter();
 const userStore = useUserStore();
 
@@ -139,7 +140,7 @@ const handleLogin = async () => {
       role = profileData.role;
     }
 
-    // تخزين في userStore
+    // ✅ تخزين في userStore
     userStore.setUser({
       id: data.user.id,
       email: data.user.email,
@@ -149,14 +150,18 @@ const handleLogin = async () => {
 
     userStore.setSession(data.session);
     
-    await nextTick();
+    // ✅ تأكد من التوجيه بعد التخزين
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // التوجيه حسب الدور
-    if (role === "admin") {
-      router.push("/dashboard");
+    if (role === "admin" || role === "partner") {
+      await router.push("/dashboard");
     } else {
-      router.push("/");
+      await router.push("/");
     }
+    
+    console.log('✅ تم تسجيل الدخول بنجاح!');
+    
   } catch (error) {
     console.error("❌ خطأ:", error);
     alert("❌ خطأ في تسجيل الدخول: " + error.message);

@@ -8,50 +8,24 @@ export const useUserStore = defineStore('user', {
     initialized: false
   }),
 
-  // ✅ تفعيل persistence
-  persist: {
-    key: 'user-store',
-    storage: process.client ? localStorage : undefined,
-    paths: ['user', 'session']
-  },
-
   getters: {
     isLoggedIn: (state) => !!state.session && !!state.user,
-    
-    userRole: (state) => {
-      if (state.user?.role) return state.user.role
-      if (state.user?.user_metadata?.role) return state.user.user_metadata.role
-      if (state.user?.app_metadata?.role) return state.user.app_metadata.role
-      return null
-    },
-    
-    isAdmin: (state) => {
-      const role = state.user?.role || state.user?.user_metadata?.role
-      return role === 'admin'
-    },
-    
-    isPartner: (state) => {
-      const role = state.user?.role || state.user?.user_metadata?.role
-      return role === 'partner'
-    },
-    
-    isCollector: (state) => {
-      const role = state.user?.role || state.user?.user_metadata?.role
-      return role === 'collector'
-    },
-    
-    canViewDashboard: (state) => {
-      const role = state.user?.role || state.user?.user_metadata?.role
-      return role === 'admin' || role === 'partner'
-    },
-    
-    canEdit: (state) => {
-      const role = state.user?.role || state.user?.user_metadata?.role
-      return role === 'admin'
-    }
+    userRole: (state) => state.user?.role || null,
+    isAdmin: (state) => state.user?.role === 'admin',
+    isPartner: (state) => state.user?.role === 'partner',
+    isCollector: (state) => state.user?.role === 'collector',
+    canViewDashboard: (state) => state.user?.role === 'admin' || state.user?.role === 'partner',
+    canEdit: (state) => state.user?.role === 'admin'
   },
 
   actions: {
+    // ✅ دالة setUser موجودة
+    setUser(user) {
+      this.user = user
+      console.log('📌 User set:', user?.email, 'Role:', user?.role)
+      this.initialized = true
+    },
+
     setSession(session) {
       this.session = session
       if (session?.user) {
@@ -61,19 +35,10 @@ export const useUserStore = defineStore('user', {
       this.initialized = true
     },
 
-    setUser(user) {
-      this.user = user
-      console.log('📌 User set:', user?.email)
-      this.initialized = true
-    },
-    
     updateUserRole(role) {
       if (this.user) {
-        this.user = {
-          ...this.user,
-          role: role
-        }
-        console.log('✅ تم تحديث دور المستخدم:', role)
+        this.user = { ...this.user, role: role }
+        console.log('✅ تم تحديث الدور:', role)
       }
     },
 
@@ -81,10 +46,6 @@ export const useUserStore = defineStore('user', {
       this.user = null
       this.session = null
       this.initialized = false
-      if (process.client) {
-        localStorage.removeItem('user-store')
-      }
-      console.log('🗑️ تم مسح الجلسة')
     },
     
     async logout() {
@@ -95,72 +56,27 @@ export const useUserStore = defineStore('user', {
         console.warn('Logout error:', e.message)
       }
       this.clearAuth()
-      await navigateTo('/login')
     },
     
     async initialize() {
-      // ✅ منع التهيئة أكثر من مرة
-      if (this.initialized) {
-        console.log('✅ Store already initialized')
-        return
-      }
-
-      // ✅ لو في session محفوظ في localStorage، استخدمه
-      if (process.client) {
-        const saved = localStorage.getItem('user-store')
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved)
-            if (parsed?.user) {
-              this.user = parsed.user
-              this.session = parsed.session
-              console.log('📌 Restored from localStorage:', parsed.user.email)
-            }
-          } catch (e) {
-            console.warn('Could not parse saved session')
-          }
-        }
-      }
+      if (this.initialized) return
       
       try {
-        const { supabase, getSession, getUserProfile } = await import('~/lib/supabase')
-        
+        const { getSession, getUserProfile } = await import('~/lib/supabase')
         const session = await getSession()
         
         if (session) {
           this.setSession(session)
-          
           const profile = await getUserProfile(session.user.email)
           if (profile?.role) {
             this.updateUserRole(profile.role)
-            console.log('✅ تم تحديث الدور:', profile.role)
           }
         }
         
-        // استماع لتغيرات المصادقة
-        supabase.auth.onAuthStateChange(async (event, newSession) => {
-          console.log('🔄 onAuthStateChange:', event)
-          
-          if (event === 'SIGNED_IN' && newSession) {
-            this.setSession(newSession)
-            
-            const profile = await getUserProfile(newSession.user.email)
-            if (profile?.role) {
-              this.updateUserRole(profile.role)
-            }
-            
-          } else if (event === 'SIGNED_OUT') {
-            this.clearAuth()
-          } else if (event === 'TOKEN_REFRESHED' && newSession) {
-            this.session = newSession
-          }
-        })
-        
         this.initialized = true
-        console.log('✅ Auth store initialized successfully')
-        
+        console.log('✅ Auth store initialized')
       } catch (error) {
-        console.error('❌ Initialize error:', error?.message || error)
+        console.error('❌ Initialize error:', error?.message)
         this.initialized = true
       }
     }
