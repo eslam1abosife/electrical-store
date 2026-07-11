@@ -2,7 +2,8 @@
 export default defineNuxtPlugin(() => {
   console.log('🔄 Supabase auth plugin loaded')
   
-  onNuxtReady(async () => {
+  // ✅ استخدم nextTick بدل onNuxtReady
+  nextTick(async () => {
     try {
       const userStore = useUserStore()
       if (!userStore.initialized) {

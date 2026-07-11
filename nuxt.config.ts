@@ -1,18 +1,15 @@
 export default defineNuxtConfig({
-  ssr: false,
+  ssr: false, // ✅ تأكد من وجودها
   
   devtools: { enabled: true },
 
-  // ✅ أزل "@nuxtjs/supabase" من القائمة
   modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt"],
 
   css: ["~/assets/css/main.css"],
 
-  runtimeConfig: {
-    public: {
-      supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL,
-      supabaseKey: process.env.NUXT_PUBLIC_SUPABASE_KEY,
-    }
+  // ✅ أضف إعدادات Pinia
+  pinia: {
+    storesDirs: ['./stores/**'],
   },
 
   components: [
@@ -30,6 +27,7 @@ export default defineNuxtConfig({
         "date-fns/locale",
         "swiper/modules",
         "swiper/vue",
+        "pinia-plugin-persistedstate", // ✅ أضف ده
       ],
     },
   },

@@ -1,6 +1,5 @@
 // stores/user.js
 import { defineStore } from 'pinia'
-import { supabase, getSession, getUserProfile } from '~/lib/supabase'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -8,6 +7,13 @@ export const useUserStore = defineStore('user', {
     session: null,
     initialized: false
   }),
+
+  // ✅ تفعيل persistence
+  persist: {
+    key: 'user-store',
+    storage: process.client ? localStorage : undefined,
+    paths: ['user', 'session']
+  },
 
   getters: {
     isLoggedIn: (state) => !!state.session && !!state.user,
@@ -75,29 +81,55 @@ export const useUserStore = defineStore('user', {
       this.user = null
       this.session = null
       this.initialized = false
+      if (process.client) {
+        localStorage.removeItem('user-store')
+      }
       console.log('🗑️ تم مسح الجلسة')
     },
     
     async logout() {
-      await supabase.auth.signOut()
+      try {
+        const { supabase } = await import('~/lib/supabase')
+        await supabase.auth.signOut()
+      } catch (e) {
+        console.warn('Logout error:', e.message)
+      }
       this.clearAuth()
       await navigateTo('/login')
     },
     
     async initialize() {
+      // ✅ منع التهيئة أكثر من مرة
       if (this.initialized) {
         console.log('✅ Store already initialized')
         return
       }
+
+      // ✅ لو في session محفوظ في localStorage، استخدمه
+      if (process.client) {
+        const saved = localStorage.getItem('user-store')
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved)
+            if (parsed?.user) {
+              this.user = parsed.user
+              this.session = parsed.session
+              console.log('📌 Restored from localStorage:', parsed.user.email)
+            }
+          } catch (e) {
+            console.warn('Could not parse saved session')
+          }
+        }
+      }
       
       try {
-        // ✅ استخدام الدالة المساعدة
+        const { supabase, getSession, getUserProfile } = await import('~/lib/supabase')
+        
         const session = await getSession()
         
         if (session) {
           this.setSession(session)
           
-          // ✅ جلب البروفايل
           const profile = await getUserProfile(session.user.email)
           if (profile?.role) {
             this.updateUserRole(profile.role)
@@ -105,7 +137,7 @@ export const useUserStore = defineStore('user', {
           }
         }
         
-        // ✅ استماع لتغيرات المصادقة
+        // استماع لتغيرات المصادقة
         supabase.auth.onAuthStateChange(async (event, newSession) => {
           console.log('🔄 onAuthStateChange:', event)
           
