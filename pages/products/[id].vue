@@ -469,7 +469,7 @@ import { useCartStore } from "~/stores/cart";
 import { useWishlistStore } from "~/stores/wishlist";
 import { useUserStore } from "~/stores/user";
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const route = useRoute();
 const router = useRouter();
 const cartStore = useCartStore();

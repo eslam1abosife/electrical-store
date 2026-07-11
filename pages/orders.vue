@@ -183,7 +183,7 @@ definePageMeta({
   middleware: 'auth',
 });
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const userStore = useUserStore();
 const cartStore = useCartStore();
 const router = useRouter();

@@ -288,7 +288,7 @@ import { useUserStore } from "~/stores/user";
 import { useWishlistStore } from "~/stores/wishlist";
 import { storeToRefs } from "pinia";
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const cartStore = useCartStore();
 const userStore = useUserStore();
 const wishlistStore = useWishlistStore();

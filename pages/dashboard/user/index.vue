@@ -200,7 +200,7 @@ definePageMeta({
   middleware: 'admin-only'
 })
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const users = ref([]);
 const searchQuery = ref('');
 const showDetailsModal = ref(false);

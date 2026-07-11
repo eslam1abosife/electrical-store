@@ -211,7 +211,7 @@ definePageMeta({
   middleware: 'admin-only',
 });
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const route = useRoute();
 const userStore = useUserStore();
 

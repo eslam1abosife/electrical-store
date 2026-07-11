@@ -424,7 +424,7 @@
 </template>
 
 <script setup>
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const userStore = useUserStore();
 
 // Props

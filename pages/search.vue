@@ -50,7 +50,7 @@
 import { useCartStore } from "~/stores/cart";
 
 const route = useRoute();
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const cartStore = useCartStore();
 
 const searchQuery = ref(route.query.q || '');

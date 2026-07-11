@@ -1,5 +1,6 @@
 // stores/user.js
 import { defineStore } from 'pinia'
+import { supabase, getSession, getUserProfile } from '~/lib/supabase'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -7,18 +8,6 @@ export const useUserStore = defineStore('user', {
     session: null,
     initialized: false
   }),
-
-  // ✅ أضف persist عشان نحتفظ بالبيانات
-  persist: {
-    enabled: true,
-    strategies: [
-      {
-        key: 'user-store',
-        storage: process.client ? localStorage : undefined,
-        paths: ['user', 'session']
-      }
-    ]
-  },
 
   getters: {
     isLoggedIn: (state) => !!state.session && !!state.user,
@@ -90,67 +79,42 @@ export const useUserStore = defineStore('user', {
     },
     
     async logout() {
-      const supabase = useSupabaseClient()
       await supabase.auth.signOut()
       this.clearAuth()
       await navigateTo('/login')
     },
     
     async initialize() {
+      if (this.initialized) {
+        console.log('✅ Store already initialized')
+        return
+      }
+      
       try {
-        const supabase = useSupabaseClient()
-        
-        if (!supabase) {
-          console.warn('⚠️ Supabase client not available')
-          this.initialized = true
-          return
-        }
-        
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        if (error) {
-          console.error('❌ Error getting session:', error.message)
-          this.initialized = true
-          return
-        }
+        // ✅ استخدام الدالة المساعدة
+        const session = await getSession()
         
         if (session) {
           this.setSession(session)
           
-          try {
-            const { data: profile } = await supabase
-              .from('user_profiles')
-              .select('role')
-              .eq('email', session.user.email)
-              .maybeSingle()
-            
-            if (profile?.role) {
-              this.updateUserRole(profile.role)
-              console.log('✅ تم تحديث الدور:', profile.role)
-            }
-          } catch (err) {
-            console.warn('⚠️ Could not fetch profile:', err.message)
+          // ✅ جلب البروفايل
+          const profile = await getUserProfile(session.user.email)
+          if (profile?.role) {
+            this.updateUserRole(profile.role)
+            console.log('✅ تم تحديث الدور:', profile.role)
           }
         }
         
+        // ✅ استماع لتغيرات المصادقة
         supabase.auth.onAuthStateChange(async (event, newSession) => {
           console.log('🔄 onAuthStateChange:', event)
           
           if (event === 'SIGNED_IN' && newSession) {
             this.setSession(newSession)
             
-            try {
-              const { data: profile } = await supabase
-                .from('user_profiles')
-                .select('role')
-                .eq('email', newSession.user.email)
-                .maybeSingle()
-              
-              if (profile?.role) {
-                this.updateUserRole(profile.role)
-              }
-            } catch (err) {
-              console.warn('⚠️ Could not fetch profile on sign in:', err.message)
+            const profile = await getUserProfile(newSession.user.email)
+            if (profile?.role) {
+              this.updateUserRole(profile.role)
             }
             
           } else if (event === 'SIGNED_OUT') {
@@ -161,6 +125,7 @@ export const useUserStore = defineStore('user', {
         })
         
         this.initialized = true
+        console.log('✅ Auth store initialized successfully')
         
       } catch (error) {
         console.error('❌ Initialize error:', error?.message || error)

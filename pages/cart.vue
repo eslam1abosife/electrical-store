@@ -165,7 +165,7 @@
 import { useCartStore } from "~/stores/cart";
 import { useUserStore } from "~/stores/user";
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const cartStore = useCartStore();
 const userStore = useUserStore();
 

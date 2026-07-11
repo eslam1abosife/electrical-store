@@ -117,7 +117,7 @@ definePageMeta({
   middleware: 'collector-only'
 })
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const router = useRouter();
 const userStore = useUserStore();
 const route = useRoute();

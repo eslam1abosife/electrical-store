@@ -505,7 +505,7 @@
 <script setup>
 definePageMeta({ layout: "dashboard" });
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const userStore = useUserStore();
 const orders = ref([]);
 const products = ref([]); // ✅ لإضافة المنتجات وحالة التوفر

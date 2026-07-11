@@ -175,7 +175,7 @@
 <script setup>
 import { useCartStore } from "~/stores/cart";
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const cartStore = useCartStore();
 
 // State

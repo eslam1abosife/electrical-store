@@ -540,7 +540,7 @@ definePageMeta({
   middleware: "admin-only",
 });
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const userStore = useUserStore();
 
 // ✅ Toast state

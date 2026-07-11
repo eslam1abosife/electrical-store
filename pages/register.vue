@@ -151,7 +151,7 @@
 </template>
 
 <script setup>
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const router = useRouter();
 
 const fullName = ref('');

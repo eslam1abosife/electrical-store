@@ -266,7 +266,7 @@
 import { useCartStore } from "~/stores/cart";
 import { useWishlistStore } from "~/stores/wishlist";
 
-const supabase = useSupabaseClient();
+import { supabase } from '~/lib/supabase';
 const cartStore = useCartStore();
 const wishlistStore = useWishlistStore();
 
