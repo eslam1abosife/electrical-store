@@ -54,10 +54,11 @@
     >
       <div class="flex flex-col h-full">
         <!-- Sidebar Header -->
-        <div class="p-4 sm:p-6 border-b">
+        <div class="p-4 sm:p-6 border-b">   <NuxtLink to="/">
           <h1 class="text-xl sm:text-2xl font-bold text-blue-600">
             جولدن
           </h1>
+          </NuxtLink>
           <p class="text-xs sm:text-sm text-gray-500">لوحة التحكم</p>
         </div>
 

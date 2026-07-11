@@ -1,4 +1,5 @@
 <template>
+  <ClientOnly>
   <div dir="rtl" class="min-h-screen bg-gray-50">
     <HeaderComponent v-model:searchQuery="searchQuery" />
 
@@ -170,6 +171,7 @@
     />
   </div>
   <ChatButton />
+  </ClientOnly>
 </template>
 
 <script setup>

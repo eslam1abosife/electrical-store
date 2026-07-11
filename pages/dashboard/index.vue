@@ -6,9 +6,11 @@
         class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div>
-          <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
-            🏠 لوحة التحكم الرئيسية
-          </h1>
+        
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
+              🏠 لوحة التحكم الرئيسية
+            </h1>
+          
           <p class="text-sm sm:text-base text-gray-500">
             مرحباً بك في نظام إدارة معرض الأجهزة الكهربائية
           </p>
@@ -540,7 +542,9 @@
         <table class="w-full min-w-[700px]">
           <thead class="bg-gray-50">
             <tr>
-              <th class="p-2 sm:p-3 text-right text-xs sm:text-sm">نوع البيع</th>
+              <th class="p-2 sm:p-3 text-right text-xs sm:text-sm">
+                نوع البيع
+              </th>
               <th class="p-2 sm:p-3 text-right text-xs sm:text-sm">المصدر</th>
               <th class="p-2 sm:p-3 text-right text-xs sm:text-sm">العميل</th>
               <th class="p-2 sm:p-3 text-right text-xs sm:text-sm">المنتجات</th>
@@ -720,7 +724,7 @@ definePageMeta({
   middleware: "admin-only",
 });
 
-import { supabase } from '~/lib/supabase';
+import { supabase } from "~/lib/supabase";
 const userStore = useUserStore();
 
 // ✅ Toast state
