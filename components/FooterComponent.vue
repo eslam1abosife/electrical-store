@@ -82,7 +82,7 @@
             <ul class="space-y-3 text-sm sm:text-base">
               <li class="flex items-center gap-2">
                 <span>📍</span>
-                <span>القاهرة - مصر</span>
+                <span>طنطا - سبرباي - امام المدينه الجامعيه</span>
               </li>
 
               <li class="flex items-center gap-2">

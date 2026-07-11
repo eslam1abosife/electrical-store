@@ -19,7 +19,6 @@ export const useUserStore = defineStore('user', {
   },
 
   actions: {
-    // ✅ دالة setUser موجودة
     setUser(user) {
       this.user = user
       console.log('📌 User set:', user?.email, 'Role:', user?.role)
@@ -46,16 +45,29 @@ export const useUserStore = defineStore('user', {
       this.user = null
       this.session = null
       this.initialized = false
+      console.log('🗑️ Auth cleared')
     },
     
+    // ✅ دالة logout محدثة
     async logout() {
       try {
+        // طريقة مباشرة باستخدام supabase من lib
         const { supabase } = await import('~/lib/supabase')
-        await supabase.auth.signOut()
-      } catch (e) {
-        console.warn('Logout error:', e.message)
+        if (supabase) {
+          await supabase.auth.signOut()
+          console.log('✅ Logged out from Supabase')
+        }
+      } catch (error) {
+        console.error('❌ Logout error:', error?.message || error)
       }
+      
+      // مسح البيانات
       this.clearAuth()
+      
+      // التوجيه للصفحة الرئيسية
+      if (process.client) {
+        window.location.href = '/'
+      }
     },
     
     async initialize() {

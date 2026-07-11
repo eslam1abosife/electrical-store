@@ -54,10 +54,9 @@
     >
       <div class="flex flex-col h-full">
         <!-- Sidebar Header -->
-        <div class="p-4 sm:p-6 border-b">   <NuxtLink to="/">
-          <h1 class="text-xl sm:text-2xl font-bold text-blue-600">
-            جولدن
-          </h1>
+        <div class="p-4 sm:p-6 border-b">
+          <NuxtLink to="/">
+            <h1 class="text-xl sm:text-2xl font-bold text-blue-600">جولدن</h1>
           </NuxtLink>
           <p class="text-xs sm:text-sm text-gray-500">لوحة التحكم</p>
         </div>
@@ -268,8 +267,18 @@ const checkMobile = () => {
   }
 };
 
-const logout = () => {
-  userStore.logout();
+// ✅ دالة logout محدثة
+const logout = async () => {
+  console.log('🚪 Logging out...')
+  try {
+    await userStore.logout()
+    // التوجيه بعد تسجيل الخروج
+    await navigateTo('/login')
+  } catch (error) {
+    console.error('❌ Logout error:', error)
+    // حتى لو فيه خطأ، نروح للـ login
+    await navigateTo('/login')
+  }
 };
 
 // Handle resize
