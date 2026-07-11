@@ -87,7 +87,7 @@
 
               <li class="flex items-center gap-2">
                 <span>📞</span>
-                <span dir="ltr">0100 123 4567</span>
+                <span dir="ltr">01030 537 692</span>
               </li>
 
               <li class="flex items-center gap-2 break-all">
