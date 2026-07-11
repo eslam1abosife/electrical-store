@@ -8,44 +8,48 @@ export const useUserStore = defineStore('user', {
     initialized: false
   }),
 
+  // ✅ أضف persist عشان نحتفظ بالبيانات
+  persist: {
+    enabled: true,
+    strategies: [
+      {
+        key: 'user-store',
+        storage: process.client ? localStorage : undefined,
+        paths: ['user', 'session']
+      }
+    ]
+  },
+
   getters: {
     isLoggedIn: (state) => !!state.session && !!state.user,
     
     userRole: (state) => {
-      // الأولوية: role المخزنة في user object
       if (state.user?.role) return state.user.role
-      // ثم من user_metadata
       if (state.user?.user_metadata?.role) return state.user.user_metadata.role
-      // ثم من app_metadata
       if (state.user?.app_metadata?.role) return state.user.app_metadata.role
       return null
     },
     
-    // ✅ مدير - صلاحية كاملة
     isAdmin: (state) => {
       const role = state.user?.role || state.user?.user_metadata?.role
       return role === 'admin'
     },
     
-    // ✅ شريك - مشاهدة فقط
     isPartner: (state) => {
       const role = state.user?.role || state.user?.user_metadata?.role
       return role === 'partner'
     },
     
-    // ✅ محصل (لو احتاجناه بعدين)
     isCollector: (state) => {
       const role = state.user?.role || state.user?.user_metadata?.role
       return role === 'collector'
     },
     
-    // ✅ هل هو مدير أو شريك (بيشوف كل حاجة)
     canViewDashboard: (state) => {
       const role = state.user?.role || state.user?.user_metadata?.role
       return role === 'admin' || role === 'partner'
     },
     
-    // ✅ هل عنده صلاحية التعديل (مدير بس)
     canEdit: (state) => {
       const role = state.user?.role || state.user?.user_metadata?.role
       return role === 'admin'
@@ -57,14 +61,14 @@ export const useUserStore = defineStore('user', {
       this.session = session
       if (session?.user) {
         this.user = session.user
-        console.log('📌 Session set:', session.user.email, 'Role from session:', this.user?.role)
+        console.log('📌 Session set:', session.user.email)
       }
       this.initialized = true
     },
 
     setUser(user) {
       this.user = user
-      console.log('📌 User set:', user?.email, 'Role:', user?.role)
+      console.log('📌 User set:', user?.email)
       this.initialized = true
     },
     
@@ -93,58 +97,75 @@ export const useUserStore = defineStore('user', {
     },
     
     async initialize() {
-      const supabase = useSupabaseClient()
-      
-      // جلب الجلسة الحالية
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (session) {
-        this.setSession(session)
+      try {
+        const supabase = useSupabaseClient()
         
-        // ✅ جلب الدور من جدول user_profiles
-        const { data: profile, error } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('email', session.user.email)
-          .maybeSingle()
+        if (!supabase) {
+          console.warn('⚠️ Supabase client not available')
+          this.initialized = true
+          return
+        }
+        
+        const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          console.error('❌ خطأ في جلب البروفايل:', error)
+          console.error('❌ Error getting session:', error.message)
+          this.initialized = true
+          return
         }
         
-        if (profile?.role) {
-          this.updateUserRole(profile.role)
-          console.log('✅ تم تحديث الدور من initialize:', profile.role)
-        } else {
-          console.log('⚠️ مفيش بروفايل للمستخدم:', session.user.email)
-        }
-      }
-      
-      // ✅ استماع لتغيرات المصادقة
-      supabase.auth.onAuthStateChange(async (event, newSession) => {
-        console.log('🔄 onAuthStateChange:', event)
-        
-        if (event === 'SIGNED_IN' && newSession) {
-          this.setSession(newSession)
+        if (session) {
+          this.setSession(session)
           
-          const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('role')
-            .eq('email', newSession.user.email)
-            .maybeSingle()
-          
-          if (profile?.role) {
-            this.updateUserRole(profile.role)
+          try {
+            const { data: profile } = await supabase
+              .from('user_profiles')
+              .select('role')
+              .eq('email', session.user.email)
+              .maybeSingle()
+            
+            if (profile?.role) {
+              this.updateUserRole(profile.role)
+              console.log('✅ تم تحديث الدور:', profile.role)
+            }
+          } catch (err) {
+            console.warn('⚠️ Could not fetch profile:', err.message)
           }
-        } else if (event === 'SIGNED_OUT') {
-          this.clearAuth()
-        } else if (event === 'TOKEN_REFRESHED') {
-          // تحديث الجلسة
-          if (newSession) {
+        }
+        
+        supabase.auth.onAuthStateChange(async (event, newSession) => {
+          console.log('🔄 onAuthStateChange:', event)
+          
+          if (event === 'SIGNED_IN' && newSession) {
+            this.setSession(newSession)
+            
+            try {
+              const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('role')
+                .eq('email', newSession.user.email)
+                .maybeSingle()
+              
+              if (profile?.role) {
+                this.updateUserRole(profile.role)
+              }
+            } catch (err) {
+              console.warn('⚠️ Could not fetch profile on sign in:', err.message)
+            }
+            
+          } else if (event === 'SIGNED_OUT') {
+            this.clearAuth()
+          } else if (event === 'TOKEN_REFRESHED' && newSession) {
             this.session = newSession
           }
-        }
-      })
+        })
+        
+        this.initialized = true
+        
+      } catch (error) {
+        console.error('❌ Initialize error:', error?.message || error)
+        this.initialized = true
+      }
     }
   }
 })

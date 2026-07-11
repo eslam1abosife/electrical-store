@@ -1,29 +1,18 @@
 // plugins/supabase-auth.client.js
-export default defineNuxtPlugin(async () => {
-  console.log('🔄 Supabase auth plugin loading...')
+export default defineNuxtPlugin(() => {
+  console.log('🔄 Supabase auth plugin loaded')
   
-  try {
-    const userStore = useUserStore()
-    
-    // ✅ استخدم الـ initialize من الـ store مباشرة
-    await userStore.initialize()
-    
-    console.log('✅ Supabase auth plugin initialized successfully')
-    
-  } catch (error) {
-    console.error('❌ Error initializing auth plugin:', error?.message || error)
-    
-    // ✅ لو فشل، حاول تاني بعد شوية
-    setTimeout(async () => {
-      try {
-        const userStore = useUserStore()
-        if (!userStore.initialized) {
-          await userStore.initialize()
-          console.log('✅ Supabase auth plugin initialized on retry')
-        }
-      } catch (retryError) {
-        console.error('❌ Retry failed:', retryError?.message || retryError)
+  // ✅ استخدم onNuxtReady عشان نتأكد إن كل حاجة جاهزة
+  onNuxtReady(async () => {
+    try {
+      const userStore = useUserStore()
+      
+      if (!userStore.initialized) {
+        await userStore.initialize()
+        console.log('✅ Auth store initialized')
       }
-    }, 2000)
-  }
+    } catch (error) {
+      console.error('❌ Auth plugin error:', error?.message || error)
+    }
+  })
 })
