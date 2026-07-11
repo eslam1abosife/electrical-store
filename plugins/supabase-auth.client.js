@@ -2,17 +2,19 @@
 export default defineNuxtPlugin(() => {
   console.log('🔄 Supabase auth plugin loaded')
   
-  // ✅ استخدم onNuxtReady عشان نتأكد إن كل حاجة جاهزة
-  onNuxtReady(async () => {
-    try {
-      const userStore = useUserStore()
-      
-      if (!userStore.initialized) {
-        await userStore.initialize()
-        console.log('✅ Auth store initialized')
+  // ✅ انتظر حتى يكون التطبيق جاهز
+  onNuxtReady(() => {
+    // ✅ تأخير بسيط عشان نتأكد من تحميل كل شيء
+    setTimeout(async () => {
+      try {
+        const userStore = useUserStore()
+        if (!userStore.initialized) {
+          await userStore.initialize()
+        }
+        console.log('✅ Auth plugin ready')
+      } catch (error) {
+        console.error('❌ Auth plugin error:', error?.message || error)
       }
-    } catch (error) {
-      console.error('❌ Auth plugin error:', error?.message || error)
-    }
+    }, 500)
   })
 })
