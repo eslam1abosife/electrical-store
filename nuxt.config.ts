@@ -5,10 +5,28 @@ export default defineNuxtConfig({
 
   css: ["~/assets/css/main.css"],
 
+  // ===== التعديلات المهمة هنا =====
   supabase: {
     redirect: false,
     autoRefreshToken: true,
     persistSession: true,
+    // أضف المتغيرات هنا عشان Vercel يقدر يقرأها
+    url: process.env.NUXT_PUBLIC_SUPABASE_URL,
+    key: process.env.NUXT_PUBLIC_SUPABASE_KEY,
+  },
+
+  // ===== أضف runtimeConfig =====
+  runtimeConfig: {
+    public: {
+      supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL,
+      supabaseKey: process.env.NUXT_PUBLIC_SUPABASE_KEY,
+    }
+  },
+
+  // ===== أضف env عشان Vercel =====
+  env: {
+    NUXT_PUBLIC_SUPABASE_URL: process.env.NUXT_PUBLIC_SUPABASE_URL,
+    NUXT_PUBLIC_SUPABASE_KEY: process.env.NUXT_PUBLIC_SUPABASE_KEY,
   },
 
   components: [
@@ -17,7 +35,6 @@ export default defineNuxtConfig({
     { path: "~/components/fans/modals", pathPrefix: false },
   ],
 
-  // ✅ أضف القسم ده عشان تحسين الأداء ومنع إعادة التحميل
   vite: {
     optimizeDeps: {
       include: [
@@ -29,6 +46,11 @@ export default defineNuxtConfig({
         "swiper/vue",
       ],
     },
+  },
+
+  // ===== مهم لـ Vercel =====
+  nitro: {
+    preset: 'vercel',
   },
 
   compatibilityDate: "2025-06-01",
