@@ -252,7 +252,9 @@
               <th class="p-4 text-right text-sm">المخزون</th>
               <th class="p-4 text-right text-sm hidden lg:table-cell">الربح</th>
               <th class="p-4 text-right text-sm hidden sm:table-cell">النوع</th>
-              <th class="p-4 text-right text-sm hidden sm:table-cell">الحالة</th>
+              <th class="p-4 text-right text-sm hidden sm:table-cell">
+                الحالة
+              </th>
               <th class="p-4 text-right text-sm">إجراءات</th>
             </tr>
           </thead>
@@ -658,7 +660,7 @@ definePageMeta({
   middleware: "admin-only",
 });
 
-import { supabase } from '~/lib/supabase';
+import { supabase } from "~/lib/supabase";
 const userStore = useUserStore();
 
 // ✅ Toast state
@@ -897,6 +899,7 @@ const removeImage = (index) => {
 };
 
 // ✅ Save product - مع product_type
+// ✅ Save product - مع product_type
 const saveProduct = async () => {
   if (!userStore.canEdit) {
     showToast("⚠️ ليس لديك صلاحية لإضافة أو تعديل المنتجات", "warning");
@@ -929,13 +932,76 @@ const saveProduct = async () => {
   };
 
   let error;
+
   if (editingProduct.value) {
+    // ✅ حفظ المنتج القديم قبل التعديل
+    const oldProduct = products.value.find(p => p.id === editingProduct.value.id);
+    
+    // ✅ تحديث المنتج
     const { error: updateError } = await supabase
       .from("products")
       .update(productData)
       .eq("id", editingProduct.value.id);
     error = updateError;
+
+    // ✅ لو تغيرت البيانات، حدّث المشتريات
+    if (!error && oldProduct) {
+      const priceChanged = oldProduct.purchase_price !== formData.value.purchase_price;
+      const nameChanged = oldProduct.name !== formData.value.name;
+      const stockChanged = oldProduct.stock !== formData.value.stock;
+
+      if (priceChanged || nameChanged || stockChanged) {
+        // ✅ جلب المشتريات المرتبطة بهذا المنتج
+        const { data: purchasesData, error: fetchError } = await supabase
+          .from("purchases")
+          .select("*")
+          .eq("product_id", editingProduct.value.id);
+
+        if (!fetchError && purchasesData && purchasesData.length > 0) {
+          // ✅ تحديث كل فواتير هذا المنتج
+          for (const purchase of purchasesData) {
+            const updateData = {};
+            
+            // ✅ تحديث سعر الشراء لو تغير
+            if (priceChanged) {
+              updateData.unit_price = formData.value.purchase_price || purchase.unit_price;
+              updateData.total_price = updateData.unit_price * purchase.quantity;
+            }
+            
+            // ✅ تحديث اسم المنتج لو تغير
+            if (nameChanged) {
+              updateData.product_name = formData.value.name;
+            }
+
+            // ✅ تحديث الكمية لو تغيرت
+            if (stockChanged) {
+              // ✅ الفرق بين الكمية القديمة والجديدة
+              const quantityDiff = formData.value.stock - oldProduct.stock;
+              // ✅ الكمية الجديدة في الفاتورة = الكمية القديمة + الفرق
+              const newQuantity = Math.max(0, purchase.quantity + quantityDiff);
+              updateData.quantity = newQuantity;
+              // ✅ تحديث الإجمالي مع السعر الجديد
+              updateData.total_price = (updateData.unit_price || purchase.unit_price) * newQuantity;
+            }
+
+            if (Object.keys(updateData).length > 0) {
+              const { error: updatePurchaseError } = await supabase
+                .from("purchases")
+                .update(updateData)
+                .eq("id", purchase.id);
+
+              if (updatePurchaseError) {
+                console.error("Error updating purchase:", updatePurchaseError);
+              }
+            }
+          }
+
+          showToast("✅ تم تحديث المنتج والمشتريات المرتبطة به", "success");
+        }
+      }
+    }
   } else {
+    // ✅ إضافة منتج جديد
     const { error: insertError } = await supabase
       .from("products")
       .insert([{ ...productData, created_at: new Date().toISOString() }]);
@@ -1056,7 +1122,26 @@ const deleteProduct = async (id) => {
     showToast("✅ تم حذف المنتج نهائياً", "success");
   }
 };
+// في صفحة المنتجات (products/index.vue)
+watch(
+  () => formData.value.purchase_price,
+  async (newPrice, oldPrice) => {
+    if (editingProduct.value && newPrice !== oldPrice) {
+      // لو تغير سعر الشراء، حدّث المشتريات
+      const { error } = await supabase
+        .from("purchases")
+        .update({
+          unit_price: newPrice,
+          total_price: newPrice * editingProduct.value.stock,
+        })
+        .eq("product_id", editingProduct.value.id);
 
+      if (error) {
+        console.error("Error updating purchases:", error);
+      }
+    }
+  },
+);
 // Close modal
 const closeModal = () => {
   showAddModal.value = false;

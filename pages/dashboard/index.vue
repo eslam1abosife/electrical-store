@@ -6,11 +6,10 @@
         class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div>
-        
-            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
-              🏠 لوحة التحكم الرئيسية
-            </h1>
-          
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
+            🏠 لوحة التحكم الرئيسية
+          </h1>
+
           <p class="text-sm sm:text-base text-gray-500">
             مرحباً بك في نظام إدارة معرض الأجهزة الكهربائية
           </p>
@@ -1158,13 +1157,23 @@ const loadPeriodDetails = async () => {
   // ✅ 3. دمج الطلبات
   const orders = [...(ordersData || []), ...(customerOrdersData || [])];
 
-  // ✅ 4. باقي الكود بنفس الشكل
+  // ✅ 4. جلب المشتريات (مع total_price مباشرة)
   const { data: purchases } = await supabase
     .from("purchases")
-    .select("*")
-    .gte("purchase_date", startDate.toISOString().split("T")[0])
-    .lte("purchase_date", endDate.toISOString().split("T")[0]);
+    .select("id, total_price, purchase_date")
+    .gte("purchase_date", startDate.toISOString())
+    .lte("purchase_date", endDate.toISOString());
 
+  // ✅ حساب إجمالي المشتريات من total_price
+  const totalPurchases =
+    purchases?.reduce((sum, p) => {
+      return sum + (Number(p.total_price) || 0);
+    }, 0) || 0;
+
+  // ✅ عدد الفواتير
+  const purchasesCount = purchases?.length || 0;
+
+  // ✅ 5. جلب المصروفات
   const { data: expenses } = await supabase
     .from("expenses")
     .select("*")
@@ -1176,6 +1185,7 @@ const loadPeriodDetails = async () => {
     .select("*")
     .eq("status", "active");
 
+  // ✅ 6. حساب المبيعات حسب النوع
   const onlineOrders = orders?.filter((o) => o.sale_type === "online") || [];
   const offlineOrders = orders?.filter((o) => o.sale_type === "offline") || [];
   const brideOrders =
@@ -1194,27 +1204,49 @@ const loadPeriodDetails = async () => {
     0,
   );
   const totalSales = onlineSales + offlineSales;
-  const totalPurchases =
-    purchases?.reduce((sum, p) => sum + (p.total_price || 0), 0) || 0;
-  const totalExpensesPeriod =
-    expenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
-  const profit = totalSales - totalPurchases - totalExpensesPeriod;
-  const profitMargin =
-    totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
 
-  // ✅ حساب عدد العملاء الفريدين بشكل صحيح
+  // ✅ 7. حساب المصروفات
+  const totalExpensesPeriod =
+    expenses?.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) || 0;
+
+  // ✅ 8. حساب صافي الربح
+  let profit = 0;
+  let profitMargin = 0;
+
+  if (totalSales > 0) {
+    let cogs = 0;
+
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, purchase_price");
+
+    const productMap = {};
+    products?.forEach((p) => {
+      productMap[p.id] = p.purchase_price || 0;
+    });
+
+    orders?.forEach((order) => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item) => {
+          const purchasePrice = productMap[item.product_id] || 0;
+          cogs += purchasePrice * (item.quantity || 1);
+        });
+      }
+    });
+
+    profit = totalSales - cogs - totalExpensesPeriod;
+    profitMargin =
+      totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
+  }
+
+  // ✅ 9. حساب عدد العملاء الفريدين
   const uniqueCustomers = new Set();
   orders?.forEach((order) => {
-    // الأولوية: البريد الإلكتروني
     if (order.customer_email) {
       uniqueCustomers.add(order.customer_email);
-    }
-    // ثانياً: رقم الهاتف
-    else if (order.customer_phone) {
+    } else if (order.customer_phone) {
       uniqueCustomers.add(order.customer_phone);
-    }
-    // أخيراً: الاسم (ما عدا "زائر")
-    else if (order.customer_name && order.customer_name !== "زائر") {
+    } else if (order.customer_name && order.customer_name !== "زائر") {
       uniqueCustomers.add(order.customer_name);
     }
   });
@@ -1234,11 +1266,11 @@ const loadPeriodDetails = async () => {
 
   periodStats.value = {
     totalSales,
-    totalPurchases,
+    totalPurchases, // ✅ من total_price في جدول purchases
     profit,
     profitMargin,
     ordersCount: orders?.length || 0,
-    purchasesCount: purchases?.length || 0,
+    purchasesCount, // ✅ عدد الفواتير
     onlineSales,
     onlineCount: onlineOrders.length,
     avgOnlineOrder:
@@ -1313,9 +1345,6 @@ const loadDashboardData = async () => {
   const totalSales = orders.reduce((sum, o) => sum + (o.total_price || 0), 0);
   const totalPurchases =
     purchases?.reduce((sum, p) => sum + (p.total_price || 0), 0) || 0;
-  const profit = totalSales - totalPurchases;
-  const profitMargin =
-    totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
 
   const onlineOrders = orders.filter((o) => o.sale_type === "online");
   const offlineOrders = orders.filter((o) => o.sale_type === "offline");
@@ -1329,13 +1358,23 @@ const loadDashboardData = async () => {
     0,
   );
 
+  // ✅ صافي الربح = 0 لو مفيش مبيعات
+  let profit = 0;
+  let profitMargin = 0;
+
+  if (totalSales > 0) {
+    profit = totalSales - totalPurchases;
+    profitMargin =
+      totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
+  }
+
   stats.value = {
     totalSales,
     totalPurchases,
     ordersCount: orders.length,
     purchasesCount: purchases?.length || 0,
-    profit,
-    profitMargin,
+    profit, // ✅ لو مفيش مبيعات = 0
+    profitMargin, // ✅ لو مفيش مبيعات = 0
     onlineSales,
     onlineCount: onlineOrders.length,
     offlineSales,

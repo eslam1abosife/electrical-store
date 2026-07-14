@@ -1333,7 +1333,12 @@ const loadPurchases = async () => {
       return {
         ...p,
         category: product?.category || "plastic",
-        product_name: product?.name || p.product_name,
+        product_name: product?.name || p.product_name || "منتج غير معروف",
+        unit_price: product?.purchase_price || p.unit_price,
+        // ✅ لو الكمية في المنتج مختلفة عن الفاتورة، استخدم كمية المنتج
+        quantity: product?.stock || p.quantity,
+        // ✅ إعادة حساب الإجمالي
+        total_price: (product?.purchase_price || p.unit_price) * (product?.stock || p.quantity),
       };
     });
   } catch (error) {
