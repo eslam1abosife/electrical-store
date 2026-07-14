@@ -235,21 +235,22 @@
         </div>
       </div>
 
+      <!-- ✅ Card مكسب البضاعة -->
       <div
-        class="bg-gradient-to-r from-amber-500 to-yellow-500 rounded-2xl shadow p-4 text-white"
+        class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow p-4 text-white"
       >
         <div class="flex justify-between items-start">
           <div>
-            <p class="text-sm opacity-90">💰 متوسط قيمة الطلب</p>
+            <p class="text-sm opacity-90">💰 مكسب البضاعة</p>
             <p class="text-3xl font-bold mt-1">
-              {{ formatNumber(periodStats.averageOrderValue) }} ج
+              {{ formatNumber(totalStockProfit) }} ج
             </p>
-            <p class="text-xs opacity-80 mt-1">لكل طلب</p>
+            <p class="text-xs opacity-80 mt-1">الفرق بين سعر البيع والشراء</p>
           </div>
           <div
             class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl"
           >
-            📊
+            📈
           </div>
         </div>
       </div>
@@ -804,6 +805,7 @@ const newExpense = ref({
 // إجمالي قيمة المخزون
 const totalStockPurchaseValue = ref(0);
 const totalStockSaleValue = ref(0);
+const totalStockProfit = ref(0); // ✅ مكسب البضاعة
 
 const stats = ref({
   totalSales: 0,
@@ -1038,17 +1040,20 @@ const loadInventoryValue = async () => {
       .from("products")
       .select("stock, price, purchase_price");
     if (error) throw error;
+
     let purchaseValue = 0,
       saleValue = 0;
     products.forEach((product) => {
       const stock = product.stock || 0;
       if (stock > 0) {
-        purchaseValue += stock * (product.purchase_price || 0);
-        saleValue += stock * (product.price || 0);
+        purchaseValue += Math.round((product.purchase_price || 0) * stock);
+        saleValue += Math.round((product.price || 0) * stock);
       }
     });
-    totalStockPurchaseValue.value = purchaseValue;
-    totalStockSaleValue.value = saleValue;
+
+    totalStockPurchaseValue.value = Math.round(purchaseValue);
+    totalStockSaleValue.value = Math.round(saleValue);
+    totalStockProfit.value = Math.round(saleValue - purchaseValue);
   } catch (error) {
     console.error("Error loading inventory value:", error);
   }
@@ -1082,7 +1087,7 @@ const loadProjectDebts = async () => {
   };
 };
 
-// دوال الرسم البياني والفترات (بنفس الكود السابق)
+// دوال الرسم البياني والفترات
 const getDateRangeForPeriod = () => {
   const now = new Date();
   let startDate = new Date();
@@ -1164,11 +1169,12 @@ const loadPeriodDetails = async () => {
     .gte("purchase_date", startDate.toISOString())
     .lte("purchase_date", endDate.toISOString());
 
-  // ✅ حساب إجمالي المشتريات من total_price
-  const totalPurchases =
+  // ✅ حساب إجمالي المشتريات من total_price (أعداد صحيحة)
+  const totalPurchases = Math.round(
     purchases?.reduce((sum, p) => {
       return sum + (Number(p.total_price) || 0);
-    }, 0) || 0;
+    }, 0) || 0,
+  );
 
   // ✅ عدد الفواتير
   const purchasesCount = purchases?.length || 0;
@@ -1185,29 +1191,27 @@ const loadPeriodDetails = async () => {
     .select("*")
     .eq("status", "active");
 
-  // ✅ 6. حساب المبيعات حسب النوع
+  // ✅ 6. حساب المبيعات حسب النوع (أعداد صحيحة)
   const onlineOrders = orders?.filter((o) => o.sale_type === "online") || [];
   const offlineOrders = orders?.filter((o) => o.sale_type === "offline") || [];
   const brideOrders =
     orders?.filter((o) => o.notes && o.notes.includes("كشف عروسة")) || [];
 
-  const onlineSales = onlineOrders.reduce(
-    (sum, o) => sum + (o.total_price || 0),
-    0,
+  const onlineSales = Math.round(
+    onlineOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
   );
-  const offlineSales = offlineOrders.reduce(
-    (sum, o) => sum + (o.total_price || 0),
-    0,
+  const offlineSales = Math.round(
+    offlineOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
   );
-  const brideSales = brideOrders.reduce(
-    (sum, o) => sum + (o.total_price || 0),
-    0,
+  const brideSales = Math.round(
+    brideOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
   );
-  const totalSales = onlineSales + offlineSales;
+  const totalSales = Math.round(onlineSales + offlineSales);
 
-  // ✅ 7. حساب المصروفات
-  const totalExpensesPeriod =
-    expenses?.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) || 0;
+  // ✅ 7. حساب المصروفات (أعداد صحيحة)
+  const totalExpensesPeriod = Math.round(
+    expenses?.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) || 0,
+  );
 
   // ✅ 8. حساب صافي الربح
   let profit = 0;
@@ -1229,12 +1233,12 @@ const loadPeriodDetails = async () => {
       if (order.items && Array.isArray(order.items)) {
         order.items.forEach((item) => {
           const purchasePrice = productMap[item.product_id] || 0;
-          cogs += purchasePrice * (item.quantity || 1);
+          cogs += Math.round(purchasePrice * (item.quantity || 1));
         });
       }
     });
 
-    profit = totalSales - cogs - totalExpensesPeriod;
+    profit = Math.round(totalSales - cogs - totalExpensesPeriod);
     profitMargin =
       totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
   }
@@ -1260,33 +1264,40 @@ const loadPeriodDetails = async () => {
     }
   });
 
-  const avgOrder = orders?.length > 0 ? totalSales / orders.length : 0;
-  const debtsDue =
-    debts?.reduce((sum, d) => sum + (d.remaining_amount || 0), 0) || 0;
+  const avgOrder =
+    orders?.length > 0 ? Math.round(totalSales / orders.length) : 0;
+  const debtsDue = Math.round(
+    debts?.reduce((sum, d) => sum + (d.remaining_amount || 0), 0) || 0,
+  );
 
   periodStats.value = {
     totalSales,
-    totalPurchases, // ✅ من total_price في جدول purchases
+    totalPurchases,
     profit,
     profitMargin,
     ordersCount: orders?.length || 0,
-    purchasesCount, // ✅ عدد الفواتير
+    purchasesCount,
     onlineSales,
     onlineCount: onlineOrders.length,
     avgOnlineOrder:
-      onlineOrders.length > 0 ? onlineSales / onlineOrders.length : 0,
+      onlineOrders.length > 0
+        ? Math.round(onlineSales / onlineOrders.length)
+        : 0,
     offlineSales,
     offlineCount: offlineOrders.length,
     avgOfflineOrder:
-      offlineOrders.length > 0 ? offlineSales / offlineOrders.length : 0,
+      offlineOrders.length > 0
+        ? Math.round(offlineSales / offlineOrders.length)
+        : 0,
     brideSales,
     brideCount: brideOrders.length,
-    avgBrideValue: brideOrders.length > 0 ? brideSales / brideOrders.length : 0,
+    avgBrideValue:
+      brideOrders.length > 0 ? Math.round(brideSales / brideOrders.length) : 0,
     totalExpenses: totalExpensesPeriod,
     expensesCount: expenses?.length || 0,
     customersCount: uniqueCustomers.size,
     totalItemsSold,
-    averageOrderValue: parseFloat(avgOrder.toFixed(0)),
+    averageOrderValue: avgOrder,
     debtsDue,
   };
 };
@@ -1342,20 +1353,21 @@ const loadDashboardData = async () => {
     count: brideOrders.length,
   };
 
-  const totalSales = orders.reduce((sum, o) => sum + (o.total_price || 0), 0);
-  const totalPurchases =
-    purchases?.reduce((sum, p) => sum + (p.total_price || 0), 0) || 0;
+  const totalSales = Math.round(
+    orders.reduce((sum, o) => sum + (o.total_price || 0), 0),
+  );
+  const totalPurchases = Math.round(
+    purchases?.reduce((sum, p) => sum + (p.total_price || 0), 0) || 0,
+  );
 
   const onlineOrders = orders.filter((o) => o.sale_type === "online");
   const offlineOrders = orders.filter((o) => o.sale_type === "offline");
 
-  const onlineSales = onlineOrders.reduce(
-    (sum, o) => sum + (o.total_price || 0),
-    0,
+  const onlineSales = Math.round(
+    onlineOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
   );
-  const offlineSales = offlineOrders.reduce(
-    (sum, o) => sum + (o.total_price || 0),
-    0,
+  const offlineSales = Math.round(
+    offlineOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
   );
 
   // ✅ صافي الربح = 0 لو مفيش مبيعات
@@ -1363,7 +1375,7 @@ const loadDashboardData = async () => {
   let profitMargin = 0;
 
   if (totalSales > 0) {
-    profit = totalSales - totalPurchases;
+    profit = Math.round(totalSales - totalPurchases);
     profitMargin =
       totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
   }
@@ -1373,8 +1385,8 @@ const loadDashboardData = async () => {
     totalPurchases,
     ordersCount: orders.length,
     purchasesCount: purchases?.length || 0,
-    profit, // ✅ لو مفيش مبيعات = 0
-    profitMargin, // ✅ لو مفيش مبيعات = 0
+    profit,
+    profitMargin,
     onlineSales,
     onlineCount: onlineOrders.length,
     offlineSales,
@@ -1393,22 +1405,30 @@ const loadDashboardData = async () => {
       o.order_date?.startsWith(dateStr),
     );
 
-    const onlineTotal = dayOrders
-      .filter((o) => o.sale_type === "online")
-      .reduce((sum, o) => sum + (o.total_price || 0), 0);
-    const offlineNormalTotal = dayOrders
-      .filter(
-        (o) =>
-          o.sale_type === "offline" &&
-          (!o.notes || !o.notes.includes("كشف عروسة")),
-      )
-      .reduce((sum, o) => sum + (o.total_price || 0), 0);
-    const offlineBrideTotal = dayOrders
-      .filter(
-        (o) =>
-          o.sale_type === "offline" && o.notes && o.notes.includes("كشف عروسة"),
-      )
-      .reduce((sum, o) => sum + (o.total_price || 0), 0);
+    const onlineTotal = Math.round(
+      dayOrders
+        .filter((o) => o.sale_type === "online")
+        .reduce((sum, o) => sum + (o.total_price || 0), 0),
+    );
+    const offlineNormalTotal = Math.round(
+      dayOrders
+        .filter(
+          (o) =>
+            o.sale_type === "offline" &&
+            (!o.notes || !o.notes.includes("كشف عروسة")),
+        )
+        .reduce((sum, o) => sum + (o.total_price || 0), 0),
+    );
+    const offlineBrideTotal = Math.round(
+      dayOrders
+        .filter(
+          (o) =>
+            o.sale_type === "offline" &&
+            o.notes &&
+            o.notes.includes("كشف عروسة"),
+        )
+        .reduce((sum, o) => sum + (o.total_price || 0), 0),
+    );
 
     last7Days.push({
       date: dateStr,
@@ -1416,8 +1436,8 @@ const loadDashboardData = async () => {
       online: onlineTotal,
       offlineNormal: offlineNormalTotal,
       offlineBride: offlineBrideTotal,
-      offline: offlineNormalTotal + offlineBrideTotal,
-      total: onlineTotal + offlineNormalTotal + offlineBrideTotal,
+      offline: Math.round(offlineNormalTotal + offlineBrideTotal),
+      total: Math.round(onlineTotal + offlineNormalTotal + offlineBrideTotal),
     });
   }
   dailySales.value = last7Days;
@@ -1435,7 +1455,9 @@ const loadDashboardData = async () => {
           });
         const data = productSales.get(item.product_id);
         data.total_quantity += item.quantity || 1;
-        data.total_revenue += (item.price || 0) * (item.quantity || 1);
+        data.total_revenue += Math.round(
+          (item.price || 0) * (item.quantity || 1),
+        );
         data.product_name = item.name;
       });
     }
