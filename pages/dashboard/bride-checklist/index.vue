@@ -421,6 +421,19 @@
                       class="w-full p-2 border rounded-lg text-sm"
                     />
                   </div>
+                  
+                  <!-- ✅ قائمة منسدلة لاختيار التصنيف -->
+                  <div class="w-32">
+                    <select
+                      v-model="item.category"
+                      class="w-full p-2 border rounded-lg text-sm bg-white"
+                    >
+                      <option value="electrical">⚡ كهرباء</option>
+                      <option value="home">🏠 منزلي</option>
+                      <option value="plastic">🪑 بلاستيك</option>
+                    </select>
+                  </div>
+                  
                   <div class="flex items-center gap-2">
                     <div class="flex items-center border rounded-lg">
                       <button
@@ -1060,6 +1073,9 @@ const addExternalToBrideItem = (item, index) => {
   }
   const quantity = Number(item.quantity) || 1;
 
+  // ✅ استخدام التصنيف المختار من المستخدم
+  const category = item.category || "electrical";
+
   brideList.value.push({
     id: "ext_" + Date.now() + Math.random(),
     name: String(item.name).trim(),
@@ -1068,8 +1084,8 @@ const addExternalToBrideItem = (item, index) => {
     price: price,
     total: price * quantity,
     type: "external",
-    category: "external",
-    categoryName: "📦 منتج خارجي",
+    category: category,
+    categoryName: getCategoryName(category),
   });
 
   showToast(`✅ تم إضافة ${item.name} إلى الكشف`, "success");
@@ -1078,7 +1094,12 @@ const addExternalToBrideItem = (item, index) => {
 
 // Add external product
 const addExternalProduct = () => {
-  externalProducts.value.push({ name: "", quantity: 1, price: 0 });
+  externalProducts.value.push({ 
+    name: "", 
+    quantity: 1, 
+    price: 0,
+    category: "electrical" // التصنيف الافتراضي
+  });
 };
 
 // Remove external product
@@ -1142,12 +1163,17 @@ function escapeHtml(text) {
 
 // Get Invoice HTML
 const getInvoiceHTML = () => {
+  // ✅ تجميع المنتجات حسب التصنيف (بما في ذلك الخارجية)
   const electricalItems = brideList.value.filter(
     (i) => i.category === "electrical",
   );
-  const homeItems = brideList.value.filter((i) => i.category === "home");
-  const plasticItems = brideList.value.filter((i) => i.category === "plastic");
-  const externalItems = brideList.value.filter((i) => i.type === "external");
+  const homeItems = brideList.value.filter(
+    (i) => i.category === "home",
+  );
+  const plasticItems = brideList.value.filter(
+    (i) => i.category === "plastic",
+  );
+  
   const totalItemsCount = brideList.value.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0),
     0,
@@ -1214,7 +1240,7 @@ const getInvoiceHTML = () => {
           ? `
       <div class="section">
         <div class="section-title">🏠 الأدوات المنزلية</div>
-        <tr>
+        <table>
           <thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
           <tbody>${homeItems.map((item, idx) => `<tr><td>${idx + 1}</td><td>${escapeHtml(item.name)}</td><td>${Number(item.quantity) || 0}</td><td>${formatNumber(Number(item.price))} ج</td><td>${formatNumber(Number(item.price) * Number(item.quantity))} ج</td></tr>`).join("")}</tbody>
         </table>
@@ -1226,25 +1252,14 @@ const getInvoiceHTML = () => {
           ? `
       <div class="section">
         <div class="section-title">🪑 البلاستيك والتخزين</div>
-        <tr>
+        <table>
           <thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
           <tbody>${plasticItems.map((item, idx) => `<tr><td>${idx + 1}</td><td>${escapeHtml(item.name)}</td><td>${Number(item.quantity) || 0}</td><td>${formatNumber(Number(item.price))} ج</td><td>${formatNumber(Number(item.price) * Number(item.quantity))} ج</td></tr>`).join("")}</tbody>
         </table>
       </div>`
           : ""
       }
-      ${
-        externalItems.length > 0
-          ? `
-      <div class="section">
-        <div class="section-title">📦 منتجات خارجية</div>
-        <table>
-          <thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
-          <tbody>${externalItems.map((item, idx) => `<tr><td>${idx + 1}</td><td>${escapeHtml(item.name)}</td><td>${Number(item.quantity) || 0}</td><td>${formatNumber(Number(item.price))} ج<td><td class="p-2">${formatNumber(Number(item.price) * Number(item.quantity))} ج</td></tr>`).join("")}</tbody>
-        </table>
-      </div>`
-          : ""
-      }
+      <!-- ✅ تم حذف قسم المنتجات الخارجية المنفصل -->
       <div class="total-row" style="background:#f0fdf4; padding:15px; border-radius:10px; margin-top:20px; border:1px solid #dcfce7;">
         <div style="display:flex; justify-content:space-between; font-size:18px; margin-bottom:8px;"><span><strong>💰 إجمالي الكشف:</strong></span><span><strong style="color:#f43f5e; font-size:22px;">${formatNumber(totalPriceSum)} جنيه</strong></span></div>
         <div style="display:flex; justify-content:space-between;"><span>📦 عدد المنتجات:</span><span>${totalItemsCount} قطعة</span></div>
@@ -1322,12 +1337,12 @@ const convertToSale = async () => {
 
   const isInstallment = brideInfo.value.payment_method === "installments";
 
-  let confirmMessage = `هل تريد تأكيد بيع منتجات كشف "${brideInfo.value.name}"؟nnعدد المنتجات: ${totalItems.value} قطعةnالإجمالي: ${formatNumber(totalPrice.value)} ج`;
+  let confirmMessage = `هل تريد تأكيد بيع منتجات كشف "${brideInfo.value.name}"؟\n\nعدد المنتجات: ${totalItems.value} قطعة\nالإجمالي: ${formatNumber(totalPrice.value)} ج`;
 
   if (isInstallment) {
     const remainingAfterDown =
       totalPrice.value - (installmentData.value.down_payment || 0);
-    confirmMessage += `nn📅 طريقة الدفع: تقسيطnدفعة مقدمة: ${formatNumber(installmentData.value.down_payment || 0)} جnالمتبقي للتقسيط: ${formatNumber(remainingAfterDown)} جnعدد الأقساط: ${installmentData.value.installment_count} قسطnقيمة القسط الشهري: ${formatNumber(installmentData.value.installment_amount)} ج`;
+    confirmMessage += `\n\n📅 طريقة الدفع: تقسيط\nدفعة مقدمة: ${formatNumber(installmentData.value.down_payment || 0)} ج\nالمتبقي للتقسيط: ${formatNumber(remainingAfterDown)} ج\nعدد الأقساط: ${installmentData.value.installment_count} قسط\nقيمة القسط الشهري: ${formatNumber(installmentData.value.installment_amount)} ج`;
   }
 
   if (!confirm(confirmMessage)) return;
@@ -1349,7 +1364,7 @@ const convertToSale = async () => {
     }
     if (outOfStock.length > 0) {
       showToast(
-        `⚠️ المنتجات التالية غير متوفرة:n${outOfStock.join("n")}`,
+        `⚠️ المنتجات التالية غير متوفرة:\n${outOfStock.join("\n")}`,
         "warning",
       );
       return;
@@ -1456,7 +1471,7 @@ const convertToSale = async () => {
       if (paymentsError) throw paymentsError;
 
       showToast(
-        `✅ تم تحويل الكشف إلى بيع وإنشاء عقد تقسيط بنجاح!nالمبلغ المتبقي: ${formatNumber(remainingAmount)} جnالقسط الشهري: ${formatNumber(installmentAmount)} ج`,
+        `✅ تم تحويل الكشف إلى بيع وإنشاء عقد تقسيط بنجاح!\nالمبلغ المتبقي: ${formatNumber(remainingAmount)} ج\nالقسط الشهري: ${formatNumber(installmentAmount)} ج`,
         "success",
       );
     } else {
