@@ -256,21 +256,16 @@ const loginWithFacebook = async () => {
       provider: 'facebook',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        }
+        // ✅ تعطيل جميع الصلاحيات الإضافية
+        scopes: '', // لا يطلب أي شيء إضافي
       }
     });
 
     if (error) throw error;
     
-    // سيتم إعادة التوجيه تلقائياً إلى صفحة Facebook
-    console.log('🔄 جاري التوجيه إلى Facebook...');
-    
   } catch (error) {
-    console.error("❌ خطأ في تسجيل الدخول بـ Facebook:", error);
-    alert("❌ حدث خطأ أثناء تسجيل الدخول بـ Facebook: " + error.message);
+    console.error("❌ خطأ:", error);
+    alert("❌ حدث خطأ: " + error.message);
     loading.value = false;
   }
 };

@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+  <div
+    class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+  >
     <div class="text-center text-white">
       <div class="text-6xl mb-4 animate-spin">⏳</div>
       <h2 class="text-2xl font-bold">جاري تسجيل الدخول...</h2>
@@ -9,8 +11,8 @@
 </template>
 
 <script setup>
-import { supabase } from '~/lib/supabase';
-import { useUserStore } from '~/stores/user';
+import { supabase } from "~/lib/supabase";
+import { useUserStore } from "~/stores/user";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -18,10 +20,13 @@ const userStore = useUserStore();
 onMounted(async () => {
   try {
     // الحصول على جلسة المستخدم
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
     if (error) throw error;
-    
+
     if (session?.user) {
       // جلب دور المستخدم
       const { data: profileData } = await supabase
@@ -31,7 +36,7 @@ onMounted(async () => {
         .maybeSingle();
 
       const role = profileData?.role || "customer";
-      
+
       // تخزين بيانات المستخدم
       userStore.setUser({
         id: session.user.id,
@@ -41,15 +46,15 @@ onMounted(async () => {
       });
 
       userStore.setSession(session);
-      
+
       // التوجيه حسب الدور
       if (role === "admin" || role === "partner") {
         await router.push("/dashboard");
       } else {
         await router.push("/");
       }
-      
-      console.log('✅ تم تسجيل الدخول بنجاح عبر OAuth!');
+
+      console.log("✅ تم تسجيل الدخول بنجاح عبر OAuth!");
     } else {
       // إذا لم توجد جلسة، ارجع لصفحة تسجيل الدخول
       await router.push("/login");
