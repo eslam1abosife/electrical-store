@@ -165,7 +165,6 @@
 import { useCartStore } from "~/stores/cart";
 import { useUserStore } from "~/stores/user";
 
-import { supabase } from '~/lib/supabase';
 const cartStore = useCartStore();
 const userStore = useUserStore();
 
@@ -184,6 +183,9 @@ const showToast = (message, type = "success") => {
 
 const proceedToCheckout = () => {
   if (!userStore.isLoggedIn) {
+    // حفظ في localStorage أن المستخدم سيتم توجيهه إلى checkout بعد تسجيل الدخول
+    localStorage.setItem('redirectToCheckout', 'true');
+    
     showToast("⚠️ يرجى تسجيل الدخول أولاً", "warning");
     navigateTo("/login");
     return;

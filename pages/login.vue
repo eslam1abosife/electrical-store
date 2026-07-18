@@ -131,17 +131,6 @@
                 </button>
               </div>
             </div>
-
-            <!-- Forgot Password -->
-            <div class="text-right">
-              <NuxtLink
-                to="/forgot-password"
-                class="text-xs sm:text-sm text-blue-400 hover:text-blue-300 transition"
-              >
-                نسيت كلمة المرور؟
-              </NuxtLink>
-            </div>
-
             <!-- Terms & Conditions -->
             <div class="flex items-start gap-2 sm:gap-3">
               <input
@@ -164,11 +153,20 @@
                 >
               </label>
             </div>
+            <!-- Forgot Password -->
+            <div class="text-right">
+              <NuxtLink
+                to="/forgot-password"
+                class="text-xs sm:text-sm text-blue-400 hover:text-blue-300 transition"
+              >
+                نسيت كلمة المرور؟
+              </NuxtLink>
+            </div>
 
             <!-- Submit Button -->
             <button
               type="submit"
-              :disabled="loading || !agreeTerms"
+              :disabled="loading"
               class="relative w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg overflow-hidden group transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span
@@ -244,7 +242,6 @@ const email = ref("");
 const password = ref("");
 const loading = ref(false);
 const showPassword = ref(false);
-const agreeTerms = ref(false);
 
 // دالة مساعدة لتحديد دور المستخدم
 const getUserRole = async (userEmail) => {
@@ -260,6 +257,17 @@ const getUserRole = async (userEmail) => {
     console.error("❌ Error fetching user role:", error);
     return "customer";
   }
+};
+
+// دالة للعودة إلى صفحة checkout مباشرة
+const redirectToCheckout = () => {
+  const redirectToCheckout = localStorage.getItem("redirectToCheckout");
+  if (redirectToCheckout) {
+    localStorage.removeItem("redirectToCheckout");
+    return router.push("/checkout");
+  }
+  // العودة إلى الصفحة الرئيسية إذا لم يكن هناك طلب توجيه
+  return router.push("/");
 };
 
 // دالة مساعدة لإعداد جلسة المستخدم
@@ -278,24 +286,14 @@ const setupUserSession = async (user, session) => {
   // تأكد من التخزين
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  // التوجيه حسب الدور
-  if (role === "admin" || role === "partner") {
-    await router.push("/dashboard");
-  } else {
-    await router.push("/");
-  }
-
   console.log("✅ تم تسجيل الدخول بنجاح!");
+
+  // التوجيه إلى checkout مباشرة
+  await redirectToCheckout();
 };
 
 // تسجيل الدخول بالبريد الإلكتروني وكلمة المرور
 const handleLogin = async () => {
-  // التحقق من الموافقة على الشروط
-  if (!agreeTerms.value) {
-    alert("⚠️ يرجى الموافقة على الشروط والأحكام");
-    return;
-  }
-
   loading.value = true;
 
   try {
@@ -310,6 +308,7 @@ const handleLogin = async () => {
   } catch (error) {
     console.error("❌ خطأ:", error);
     alert("❌ خطأ في تسجيل الدخول: " + error.message);
+    loading.value = false;
   } finally {
     loading.value = false;
   }
@@ -317,8 +316,6 @@ const handleLogin = async () => {
 
 // تسجيل الدخول بـ Google
 const loginWithGoogle = async () => {
- 
-
   loading.value = true;
 
   try {
@@ -345,8 +342,6 @@ const loginWithGoogle = async () => {
 
 // تسجيل الدخول بـ Facebook
 const loginWithFacebook = async () => {
-  
-
   loading.value = true;
 
   try {
