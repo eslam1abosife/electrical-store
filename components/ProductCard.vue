@@ -1,5 +1,5 @@
 <template>
-  <div
+  <div dir="rtl"
     class="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 sm:hover:-translate-y-2"
   >
     <NuxtLink :to="`/products/${product.id}`" class="block">

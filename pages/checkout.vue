@@ -69,11 +69,11 @@
               </select>
             </div>
 
-            <div
+            <!-- <div
               class="bg-blue-50 p-3 rounded-xl text-xs sm:text-sm text-blue-700"
             >
               💡 ملاحظة: هذا الطلب سيتم تسجيله كمبيعات "من الموقع الإلكتروني"
-            </div>
+            </div> -->
 
             <button
               type="submit"

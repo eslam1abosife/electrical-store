@@ -684,7 +684,7 @@ import { supabase } from '~/lib/supabase';
 const userStore = useUserStore();
 
 // رقم المعرض
-const STORE_PHONE = "01034003002";
+const STORE_PHONE = "01030537692";
 
 // ✅ Toast state
 const toast = ref({ show: false, message: "", type: "success", icon: "✅" });

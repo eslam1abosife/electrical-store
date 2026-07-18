@@ -14,6 +14,45 @@
         </div>
 
         <div class="p-6 sm:p-8">
+          <!-- Social Login Buttons -->
+          <div class="space-y-3 mb-6">
+            <button 
+              @click="loginWithGoogle" 
+              :disabled="loading"
+              class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-medium text-sm sm:text-base transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 48 48">
+                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
+              </svg>
+              <span>تسجيل الدخول بـ Google</span>
+            </button>
+
+            <button 
+              @click="loginWithFacebook" 
+              :disabled="loading"
+              class="w-full flex items-center justify-center gap-3 bg-[#1877f2] hover:bg-[#166fe5] text-white py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-medium text-sm sm:text-base transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+              <span>تسجيل الدخول بـ Facebook</span>
+            </button>
+
+            <!-- Divider -->
+            <div class="relative my-4">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-white/20"></div>
+              </div>
+              <div class="relative flex justify-center text-xs sm:text-sm">
+                <span class="px-3 bg-gray-800/50 text-gray-400 backdrop-blur-sm">أو</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Login Form -->
           <form @submit.prevent="handleLogin" class="space-y-4 sm:space-y-5">
             <!-- Email -->
             <div>
@@ -116,6 +155,49 @@ const password = ref("");
 const loading = ref(false);
 const showPassword = ref(false);
 
+// دالة مساعدة لتحديد دور المستخدم
+const getUserRole = async (userEmail) => {
+  try {
+    const { data: profileData } = await supabase
+      .from("user_profiles")
+      .select("role")
+      .eq("email", userEmail)
+      .maybeSingle();
+
+    return profileData?.role || "customer";
+  } catch (error) {
+    console.error("❌ Error fetching user role:", error);
+    return "customer";
+  }
+};
+
+// دالة مساعدة لإعداد جلسة المستخدم
+const setupUserSession = async (user, session) => {
+  const role = await getUserRole(user.email);
+  
+  userStore.setUser({
+    id: user.id,
+    email: user.email,
+    role: role,
+    isAdmin: role === "admin",
+  });
+
+  userStore.setSession(session);
+  
+  // تأكد من التخزين
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  // التوجيه حسب الدور
+  if (role === "admin" || role === "partner") {
+    await router.push("/dashboard");
+  } else {
+    await router.push("/");
+  }
+  
+  console.log('✅ تم تسجيل الدخول بنجاح!');
+};
+
+// تسجيل الدخول بالبريد الإلكتروني وكلمة المرور
 const handleLogin = async () => {
   loading.value = true;
 
@@ -127,45 +209,68 @@ const handleLogin = async () => {
 
     if (error) throw error;
 
-    // جلب الدور من user_profiles
-    let role = "customer";
-
-    const { data: profileData } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("email", data.user.email)
-      .maybeSingle();
-
-    if (profileData) {
-      role = profileData.role;
-    }
-
-    // ✅ تخزين في userStore
-    userStore.setUser({
-      id: data.user.id,
-      email: data.user.email,
-      role: role,
-      isAdmin: role === "admin",
-    });
-
-    userStore.setSession(data.session);
-    
-    // ✅ تأكد من التوجيه بعد التخزين
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // التوجيه حسب الدور
-    if (role === "admin" || role === "partner") {
-      await router.push("/dashboard");
-    } else {
-      await router.push("/");
-    }
-    
-    console.log('✅ تم تسجيل الدخول بنجاح!');
+    await setupUserSession(data.user, data.session);
     
   } catch (error) {
     console.error("❌ خطأ:", error);
     alert("❌ خطأ في تسجيل الدخول: " + error.message);
   } finally {
+    loading.value = false;
+  }
+};
+
+// تسجيل الدخول بـ Google
+const loginWithGoogle = async () => {
+  loading.value = true;
+  
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
+    });
+
+    if (error) throw error;
+    
+    // سيتم إعادة التوجيه تلقائياً إلى صفحة Google
+    console.log('🔄 جاري التوجيه إلى Google...');
+    
+  } catch (error) {
+    console.error("❌ خطأ في تسجيل الدخول بـ Google:", error);
+    alert("❌ حدث خطأ أثناء تسجيل الدخول بـ Google: " + error.message);
+    loading.value = false;
+  }
+};
+
+// تسجيل الدخول بـ Facebook
+const loginWithFacebook = async () => {
+  loading.value = true;
+  
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
+    });
+
+    if (error) throw error;
+    
+    // سيتم إعادة التوجيه تلقائياً إلى صفحة Facebook
+    console.log('🔄 جاري التوجيه إلى Facebook...');
+    
+  } catch (error) {
+    console.error("❌ خطأ في تسجيل الدخول بـ Facebook:", error);
+    alert("❌ حدث خطأ أثناء تسجيل الدخول بـ Facebook: " + error.message);
     loading.value = false;
   }
 };
@@ -206,5 +311,10 @@ button,
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 300ms;
+}
+
+/* تحسين مظهر أزرار السوشيال ميديا */
+button svg {
+  flex-shrink: 0;
 }
 </style>
