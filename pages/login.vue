@@ -317,11 +317,7 @@ const handleLogin = async () => {
 
 // تسجيل الدخول بـ Google
 const loginWithGoogle = async () => {
-  // التحقق من الموافقة على الشروط
-  if (!agreeTerms.value) {
-    alert("⚠️ يرجى الموافقة على الشروط والأحكام أولاً");
-    return;
-  }
+ 
 
   loading.value = true;
 
@@ -349,11 +345,7 @@ const loginWithGoogle = async () => {
 
 // تسجيل الدخول بـ Facebook
 const loginWithFacebook = async () => {
-  // التحقق من الموافقة على الشروط
-  if (!agreeTerms.value) {
-    alert("⚠️ يرجى الموافقة على الشروط والأحكام أولاً");
-    return;
-  }
+  
 
   loading.value = true;
 
