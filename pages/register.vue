@@ -98,9 +98,9 @@
               />
               <label for="terms" class="text-[10px] sm:text-xs text-gray-300 leading-relaxed">
                 أوافق على 
-                <a href="#" class="text-blue-400 hover:underline">الشروط والأحكام</a> 
+                <a href="terms/" class="text-blue-400 hover:underline">الشروط والأحكام</a> 
                 و 
-                <a href="#" class="text-blue-400 hover:underline">سياسة الخصوصية</a>
+                <a href="privacy/" class="text-blue-400 hover:underline">سياسة الخصوصية</a>
               </label>
             </div>
 
