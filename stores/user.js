@@ -5,22 +5,23 @@ export const useUserStore = defineStore('user', {
   state: () => ({
     user: null,
     session: null,
-    initialized: false
+    initialized: false,
+    isAdmin: false,
+    isPartner: false,
+    isLoggedIn: false
   }),
 
   getters: {
-    isLoggedIn: (state) => !!state.session && !!state.user,
-    userRole: (state) => state.user?.role || null,
-    isAdmin: (state) => state.user?.role === 'admin',
-    isPartner: (state) => state.user?.role === 'partner',
-    isCollector: (state) => state.user?.role === 'collector',
-    canViewDashboard: (state) => state.user?.role === 'admin' || state.user?.role === 'partner',
-    canEdit: (state) => state.user?.role === 'admin'
+    // باقي الـ getters...
   },
 
   actions: {
     setUser(user) {
       this.user = user
+      this.isLoggedIn = !!user
+      // تحديث الأدوار
+      this.isAdmin = user?.role === 'admin'
+      this.isPartner = user?.role === 'partner'
       console.log('📌 User set:', user?.email, 'Role:', user?.role)
       this.initialized = true
     },
@@ -29,6 +30,7 @@ export const useUserStore = defineStore('user', {
       this.session = session
       if (session?.user) {
         this.user = session.user
+        this.isLoggedIn = true
         console.log('📌 Session set:', session.user.email)
       }
       this.initialized = true
@@ -37,6 +39,8 @@ export const useUserStore = defineStore('user', {
     updateUserRole(role) {
       if (this.user) {
         this.user = { ...this.user, role: role }
+        this.isAdmin = role === 'admin'
+        this.isPartner = role === 'partner'
         console.log('✅ تم تحديث الدور:', role)
       }
     },
@@ -45,13 +49,14 @@ export const useUserStore = defineStore('user', {
       this.user = null
       this.session = null
       this.initialized = false
+      this.isLoggedIn = false
+      this.isAdmin = false
+      this.isPartner = false
       console.log('🗑️ Auth cleared')
     },
     
-    // ✅ دالة logout محدثة
     async logout() {
       try {
-        // طريقة مباشرة باستخدام supabase من lib
         const { supabase } = await import('~/lib/supabase')
         if (supabase) {
           await supabase.auth.signOut()
@@ -61,10 +66,8 @@ export const useUserStore = defineStore('user', {
         console.error('❌ Logout error:', error?.message || error)
       }
       
-      // مسح البيانات
       this.clearAuth()
       
-      // التوجيه للصفحة الرئيسية
       if (process.client) {
         window.location.href = '/'
       }
@@ -83,13 +86,16 @@ export const useUserStore = defineStore('user', {
           if (profile?.role) {
             this.updateUserRole(profile.role)
           }
+        } else {
+          this.initialized = true
+          this.isLoggedIn = false
         }
         
-        this.initialized = true
         console.log('✅ Auth store initialized')
       } catch (error) {
         console.error('❌ Initialize error:', error?.message)
         this.initialized = true
+        this.isLoggedIn = false
       }
     }
   }

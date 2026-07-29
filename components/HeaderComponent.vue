@@ -26,15 +26,17 @@
         </NuxtLink>
 
         <!-- Desktop Search -->
-        <div class="hidden lg:flex flex-1 max-w-2xl mx-6 relative">
+        <div class="hidden lg:flex flex-1 max-w-2xl mx-6 relative" ref="searchContainer">
           <div class="relative w-full">
             <input
+              ref="searchInput"
               v-model="searchQuery"
               @input="onSearchInput"
               @focus="showResults = true"
               @keydown.down="moveSelectionDown"
               @keydown.up="moveSelectionUp"
               @keydown.enter="selectCurrentItem"
+              @blur="handleBlur"
               placeholder="ابحث عن ثلاجة، غسالة..."
               class="w-full bg-gray-100 border border-gray-200 rounded-2xl lg:rounded-3xl py-3 lg:py-4 px-5 pl-12 lg:pl-14 text-sm lg:text-base focus:outline-none focus:border-blue-500"
             />
@@ -133,11 +135,121 @@
           </div>
         </div>
 
+        <!-- Mobile Search - Improved -->
+        <div class="lg:hidden flex-1 relative" ref="mobileSearchContainer">
+          <div class="relative w-full">
+            <input
+              ref="mobileSearchInput"
+              v-model="searchQuery"
+              @input="onSearchInput"
+              @focus="showMobileResults = true"
+              @keydown.down="moveSelectionDown"
+              @keydown.up="moveSelectionUp"
+              @keydown.enter="selectCurrentItem"
+              @blur="handleMobileBlur"
+              placeholder="ابحث..."
+              class="w-full bg-gray-100 border border-gray-200 rounded-2xl py-2 px-4 pl-10 text-sm focus:outline-none focus:border-blue-500"
+            />
+
+            <span
+              class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            >
+              🔍
+            </span>
+
+            <div
+              v-if="searchLoading"
+              class="absolute left-3 top-1/2 -translate-y-1/2"
+            >
+              <div
+                class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Mobile Search Results -->
+          <div
+            v-if="showMobileResults && (searchResults.length > 0 || searchQuery)"
+            class="fixed left-0 right-0 top-[72px] bg-white shadow-2xl border border-gray-100 max-h-[70vh] overflow-y-auto z-50"
+          >
+            <div v-if="searchLoading" class="p-6 text-center">
+              <div
+                class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"
+              ></div>
+
+              <p class="text-gray-500 mt-2">جاري البحث...</p>
+            </div>
+
+            <div v-else-if="searchResults.length > 0">
+              <div class="p-3 bg-gray-50 border-b">
+                <p class="text-sm text-gray-500">
+                  تم العثور على {{ searchResults.length }} منتج
+                </p>
+              </div>
+
+              <div class="divide-y">
+                <div
+                  v-for="(product, index) in searchResults"
+                  :key="product.id"
+                  @click="selectProduct(product)"
+                  @mouseenter="selectedIndex = index"
+                  class="p-3 hover:bg-blue-50 cursor-pointer transition"
+                  :class="{ 'bg-blue-50': selectedIndex === index }"
+                >
+                  <div class="flex gap-3">
+                    <div
+                      class="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0"
+                    >
+                      <img
+                        :src="getProductImage(product)"
+                        :alt="product.name"
+                        class="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                      <h4
+                        class="font-semibold text-gray-900 line-clamp-2 text-sm"
+                      >
+                        {{ product.name }}
+                      </h4>
+
+                      <div class="mt-1">
+                        <span class="text-blue-600 font-bold">
+                          {{ formatPrice(product.price) }} ج
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="p-3 border-t bg-gray-50">
+                <button
+                  @click="viewAllResults"
+                  class="w-full text-center text-blue-600 font-semibold py-2 hover:bg-blue-100 rounded-xl transition"
+                >
+                  عرض جميع النتائج
+                </button>
+              </div>
+            </div>
+
+            <div
+              v-else-if="searchQuery && !searchLoading"
+              class="p-8 text-center"
+            >
+              <div class="text-5xl mb-3">🔍</div>
+
+              <p class="text-gray-600">لا توجد نتائج لـ "{{ searchQuery }}"</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Desktop Icons -->
         <div class="hidden lg:flex items-center gap-4 xl:gap-6">
           <!-- ✅ زرار الداشبورد - يظهر للمدير والشريك -->
           <NuxtLink
-            v-if="userStore?.isAdmin || userStore?.isPartner"
+            v-if="userStore.isAdmin || userStore.isPartner"
             to="/dashboard"
             class="hover:scale-110 transition text-2xl xl:text-3xl"
             title="لوحة التحكم"
@@ -221,7 +333,7 @@
         <!-- Mobile Menu Button -->
         <button
           @click="isMobileMenuOpen = !isMobileMenuOpen"
-          class="lg:hidden text-2xl p-2"
+          class="lg:hidden text-2xl p-2 flex-shrink-0"
         >
           ☰
         </button>
@@ -231,13 +343,6 @@
     <!-- Mobile Menu -->
     <div v-if="isMobileMenuOpen" class="lg:hidden bg-white border-t">
       <div class="container mx-auto px-4 py-4 flex flex-col gap-4">
-        <input
-          v-model="searchQuery"
-          @input="onSearchInput"
-          placeholder="ابحث عن منتج..."
-          class="border border-gray-300 rounded-2xl px-4 py-3 w-full text-sm"
-        />
-
         <!-- ✅ زرار الداشبورد في الموبايل - يظهر للمدير والشريك -->
         <NuxtLink
           v-if="userStore.isAdmin || userStore.isPartner"
@@ -289,17 +394,28 @@ import { useWishlistStore } from "~/stores/wishlist";
 import { storeToRefs } from "pinia";
 
 import { supabase } from '~/lib/supabase';
+
 const cartStore = useCartStore();
 const userStore = useUserStore();
 const wishlistStore = useWishlistStore();
 
+// ✅ تأكد من تهيئة userStore قبل استخدامه
+await userStore.initialize();
+
 // State
 const isMobileMenuOpen = ref(false);
 const showResults = ref(false);
+const showMobileResults = ref(false);
 const searchResults = ref([]);
 const searchLoading = ref(false);
 const selectedIndex = ref(-1);
 let searchTimeout = null;
+
+// Refs for click outside detection
+const searchContainer = ref(null);
+const mobileSearchContainer = ref(null);
+const searchInput = ref(null);
+const mobileSearchInput = ref(null);
 
 // ✅ استخدام storeToRefs لجعل القيم تفاعلية
 const { isAdmin, isPartner, isLoggedIn, user, initialized } =
@@ -332,16 +448,40 @@ const logout = async () => {
   navigateTo("/");
 };
 
+// Handle blur for desktop search
+const handleBlur = (event) => {
+  const relatedTarget = event.relatedTarget;
+  if (relatedTarget && searchContainer.value?.contains(relatedTarget)) {
+    return;
+  }
+  setTimeout(() => {
+    showResults.value = false;
+  }, 150);
+};
+
+// Handle blur for mobile search
+const handleMobileBlur = (event) => {
+  const relatedTarget = event.relatedTarget;
+  if (relatedTarget && mobileSearchContainer.value?.contains(relatedTarget)) {
+    return;
+  }
+  setTimeout(() => {
+    showMobileResults.value = false;
+  }, 150);
+};
+
 const onSearchInput = async () => {
   const query = searchQuery.value.trim();
 
   if (!query) {
     searchResults.value = [];
     showResults.value = false;
+    showMobileResults.value = false;
     return;
   }
 
   showResults.value = true;
+  showMobileResults.value = true;
   searchLoading.value = true;
   selectedIndex.value = -1;
 
@@ -371,11 +511,13 @@ const onSearchInput = async () => {
 const selectProduct = (product) => {
   searchQuery.value = product.name;
   showResults.value = false;
+  showMobileResults.value = false;
   navigateTo(`/products/${product.id}`);
 };
 
 const viewAllResults = () => {
   showResults.value = false;
+  showMobileResults.value = false;
   navigateTo(`/search?q=${encodeURIComponent(searchQuery.value)}`);
 };
 
@@ -412,18 +554,24 @@ const scrollToSelected = () => {
   });
 };
 
-onMounted(() => {
-  userStore.initialize();
+// Close search results when clicking outside
+const handleClickOutside = (event) => {
+  if (searchContainer.value && !searchContainer.value.contains(event.target)) {
+    showResults.value = false;
+  }
+  if (mobileSearchContainer.value && !mobileSearchContainer.value.contains(event.target)) {
+    showMobileResults.value = false;
+  }
+};
 
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".relative")) {
-      showResults.value = false;
-    }
-  });
+onMounted(() => {
+  // Add click outside listener
+  document.addEventListener("click", handleClickOutside);
 });
 
 onUnmounted(() => {
   if (searchTimeout) clearTimeout(searchTimeout);
+  document.removeEventListener("click", handleClickOutside);
 });
 </script>
 
@@ -451,5 +599,11 @@ onUnmounted(() => {
 
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+@media (max-width: 1023px) {
+  .fixed {
+    position: fixed;
+  }
 }
 </style>
