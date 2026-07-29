@@ -12,7 +12,10 @@ export const useUserStore = defineStore('user', {
   }),
 
   getters: {
-    // باقي الـ getters...
+    userRole: (state) => state.user?.role || null,
+    isCollector: (state) => state.user?.role === 'collector',
+    canViewDashboard: (state) => state.user?.role === 'admin' || state.user?.role === 'partner',
+    canEdit: (state) => state.user?.role === 'admin'
   },
 
   actions: {
