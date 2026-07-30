@@ -714,8 +714,8 @@ definePageMeta({
 });
 
 import { supabase } from '~/lib/supabase';
-import { sendNewOrderNotification } from '~/lib/notification';
-
+import { sendWhatsAppNotification } from '~/lib/wati';
+import { sendEmailNotification } from '~/lib/email';
 const userStore = useUserStore();
 
 // إعدادات المعرض
@@ -1235,8 +1235,12 @@ const completeSale = async () => {
     payment_method: customer.value.payment_method,
     sale_type: "offline",
     cashier_name: customer.value.cashier_name || userStore.user?.email,
-    order_date: new Date(),
+    order_date: new Date().toISOString(),
     notes: notes.trim() || null,
+    down_payment: customer.value.payment_method === "installments" ? installments.value.down_payment || 0 : 0,
+    remaining_amount: customer.value.payment_method === "installments" ? remainingAmount.value || 0 : 0,
+    monthly_payment: customer.value.payment_method === "installments" ? installments.value.monthly_payment || 0 : 0,
+    months: customer.value.payment_method === "installments" ? installments.value.months || 0 : 0
   };
 
   const { data: orderResult, error: orderError } = await supabase
@@ -1250,6 +1254,22 @@ const completeSale = async () => {
     return;
   }
 
+  // ✅ إرسال إشعار واتساب عبر Wati (حاول، لو فشل مش مشكلة)
+  try {
+    await sendWhatsAppNotification(orderResult);
+    console.log('✅ تم إرسال إشعار واتساب');
+  } catch (watiError) {
+    console.error('⚠️ خطأ في إرسال إشعار واتساب:', watiError);
+  }
+
+  // ✅ إرسال إشعار إيميل عبر Resend
+  try {
+    await sendEmailNotification(orderResult);
+    console.log('✅ تم إرسال إشعار الإيميل');
+  } catch (emailError) {
+    console.error('⚠️ خطأ في إرسال إشعار الإيميل:', emailError);
+  }
+
   // ✅ إرسال إشعار من المتصفح (بسيط وسريع)
   if (Notification.permission === 'granted') {
     new Notification('📦 طلب جديد من المعرض', {
@@ -1258,14 +1278,6 @@ const completeSale = async () => {
       vibrate: [200, 100, 200]
     });
     console.log('✅ تم إرسال إشعار المتصفح');
-  }
-
-  // ✅ إرسال إشعار للمدراء (الطريقة القديمة - لو مشتغلتش مش مشكلة)
-  try {
-    await sendNewOrderNotification(orderResult);
-    console.log('✅ تم إرسال الإشعارات عن البيع الجديد');
-  } catch (notifError) {
-    console.error('⚠️ خطأ في إرسال الإشعار:', notifError);
   }
 
   // تحديث المخزون

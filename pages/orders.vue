@@ -130,19 +130,19 @@
 
             <!-- Order Footer -->
             <div class="mt-4 pt-4 border-t flex flex-wrap justify-between items-center gap-3">
-              <div class="text-sm text-gray-500">
+              <!-- <div class="text-sm text-gray-500">
                 طريقة الدفع: 
                 <span class="font-medium text-gray-700">
                   {{ getPaymentMethod(order.payment_method) }}
                 </span>
-              </div>
+              </div> -->
               <div class="flex gap-2">
-                <button
+                <!-- <button
                   @click="printInvoice(order)"
                   class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition"
                 >
                   🖨️ طباعة الفاتورة
-                </button>
+                </button> -->
                 <button
                   v-if="order.status === 'delivered'"
                   @click="reorder(order)"

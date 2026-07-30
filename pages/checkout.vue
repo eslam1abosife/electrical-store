@@ -69,12 +69,6 @@
               </select>
             </div>
 
-            <!-- <div
-              class="bg-blue-50 p-3 rounded-xl text-xs sm:text-sm text-blue-700"
-            >
-              💡 ملاحظة: هذا الطلب سيتم تسجيله كمبيعات "من الموقع الإلكتروني"
-            </div> -->
-
             <button
               type="submit"
               :disabled="loading"
@@ -176,8 +170,9 @@
 <script setup>
 import { useCartStore } from "~/stores/cart";
 import { useUserStore } from "~/stores/user";
-
 import { supabase } from '~/lib/supabase';
+import { sendEmailNotification } from '~/lib/email';
+
 const cartStore = useCartStore();
 const userStore = useUserStore();
 const loading = ref(false);
@@ -279,15 +274,32 @@ const submitOrder = async () => {
 
     if (adminOrderError) throw adminOrderError;
 
-    // ✅ 5. نجاح الطلب
+    // ✅ 5. إرسال إشعار إيميل
+    try {
+      const emailOrderData = {
+        ...orderData,
+        id: 'NEW',
+        customer_name: orderData.customer_name,
+        total_price: orderData.total_price,
+        items: orderData.items,
+        payment_method: orderData.payment_method,
+        cashier_name: 'عميل من الموقع'
+      };
+      await sendEmailNotification(emailOrderData);
+      console.log('✅ تم إرسال إشعار الإيميل');
+    } catch (emailError) {
+      console.error('⚠️ خطأ في إرسال إشعار الإيميل:', emailError);
+    }
+
+    // ✅ 6. نجاح الطلب
     alert(
       "🎉 تم استلام طلبك بنجاح! سنتواصل معك قريباً لتأكيد الطلب وتفاصيل الشحن",
     );
 
-    // ✅ 6. تفريغ السلة
+    // ✅ 7. تفريغ السلة
     cartStore.clearCart();
 
-    // ✅ 7. التوجه لصفحة الطلبات
+    // ✅ 8. التوجه لصفحة الطلبات
     navigateTo("/orders");
   } catch (error) {
     console.error("❌ Checkout Error:", error);
