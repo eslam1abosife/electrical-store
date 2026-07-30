@@ -10,7 +10,14 @@
             متابعة طلبات العملاء (من الموقع ومن المعرض)
           </p>
         </div>
-        <!-- ❌ تم إزالة زر إضافة طلب جديد -->
+        <!-- ✅ زر إضافة طلب جديد مع إشعار -->
+        <button
+          v-if="userStore?.canEdit"
+          @click="openAddOrderModal"
+          class="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:bg-blue-700 transition text-sm sm:text-base flex items-center gap-2"
+        >
+          <span class="text-lg">➕</span> إضافة طلب جديد
+        </button>
       </div>
     </div>
 
@@ -370,7 +377,181 @@
       </div>
     </div>
 
-    <!-- ❌ تم إزالة مودال إضافة طلب جديد -->
+    <!-- ✅ مودال إضافة طلب جديد -->
+    <div
+      v-if="showAddOrderModal"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      @click.self="closeAddOrderModal"
+    >
+      <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div class="p-4 sm:p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl sm:text-2xl font-bold">➕ إضافة طلب جديد</h2>
+            <button
+              @click="closeAddOrderModal"
+              class="text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              &times;
+            </button>
+          </div>
+
+          <form @submit.prevent="handleCreateOrder">
+            <!-- معلومات العميل -->
+            <div class="bg-gray-50 p-4 rounded-xl mb-4">
+              <h3 class="font-bold text-base mb-3">👤 معلومات العميل</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium mb-1">اسم العميل *</label>
+                  <input
+                    v-model="newOrder.customer_name"
+                    type="text"
+                    required
+                    class="w-full p-2.5 border rounded-xl text-sm"
+                    placeholder="أدخل اسم العميل"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">رقم الهاتف *</label>
+                  <input
+                    v-model="newOrder.customer_phone"
+                    type="text"
+                    required
+                    class="w-full p-2.5 border rounded-xl text-sm"
+                    placeholder="أدخل رقم الهاتف"
+                  />
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block text-sm font-medium mb-1">العنوان (اختياري)</label>
+                  <input
+                    v-model="newOrder.customer_address"
+                    type="text"
+                    class="w-full p-2.5 border rounded-xl text-sm"
+                    placeholder="أدخل العنوان"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- معلومات الطلب -->
+            <div class="bg-gray-50 p-4 rounded-xl mb-4">
+              <h3 class="font-bold text-base mb-3">📋 معلومات الطلب</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium mb-1">نوع البيع *</label>
+                  <select
+                    v-model="newOrder.sale_type"
+                    required
+                    class="w-full p-2.5 border rounded-xl text-sm"
+                  >
+                    <option value="offline">🏪 معرض</option>
+                    <option value="online">🖥️ موقع</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">الإجمالي *</label>
+                  <input
+                    v-model.number="newOrder.total_price"
+                    type="number"
+                    required
+                    min="1"
+                    class="w-full p-2.5 border rounded-xl text-sm"
+                    placeholder="المبلغ الإجمالي"
+                  />
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block text-sm font-medium mb-1">ملاحظات (اختياري)</label>
+                  <textarea
+                    v-model="newOrder.notes"
+                    rows="2"
+                    class="w-full p-2.5 border rounded-xl text-sm"
+                    placeholder="أي ملاحظات إضافية..."
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- المنتجات -->
+            <div class="bg-gray-50 p-4 rounded-xl mb-4">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-base">🛒 المنتجات</h3>
+                <button
+                  type="button"
+                  @click="addProductItem"
+                  class="text-blue-600 text-sm hover:underline"
+                >
+                  ➕ إضافة منتج
+                </button>
+              </div>
+
+              <div
+                v-for="(item, index) in newOrder.items"
+                :key="index"
+                class="flex flex-wrap gap-2 mb-2 p-2 bg-white rounded-lg border"
+              >
+                <input
+                  v-model="item.name"
+                  type="text"
+                  required
+                  placeholder="اسم المنتج"
+                  class="flex-1 min-w-[120px] p-2 border rounded-lg text-sm"
+                />
+                <input
+                  v-model.number="item.quantity"
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="الكمية"
+                  class="w-20 p-2 border rounded-lg text-sm"
+                />
+                <input
+                  v-model.number="item.price"
+                  type="number"
+                  required
+                  min="0"
+                  placeholder="السعر"
+                  class="w-28 p-2 border rounded-lg text-sm"
+                />
+                <input
+                  v-model="item.product_id"
+                  type="text"
+                  placeholder="ID المنتج (اختياري)"
+                  class="w-32 p-2 border rounded-lg text-sm"
+                />
+                <button
+                  type="button"
+                  @click="removeProductItem(index)"
+                  class="text-red-500 hover:text-red-700 px-2"
+                >
+                  🗑️
+                </button>
+              </div>
+
+              <div v-if="newOrder.items.length === 0" class="text-center text-gray-400 text-sm py-4">
+                لا توجد منتجات مضافة. اضغط على "إضافة منتج"
+              </div>
+            </div>
+
+            <!-- أزرار -->
+            <div class="flex flex-col sm:flex-row gap-3">
+              <button
+                type="submit"
+                :disabled="loading"
+                class="flex-1 bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 text-sm sm:text-base"
+              >
+                {{ loading ? '⏳ جاري الحفظ...' : '💾 حفظ الطلب وإرسال إشعار' }}
+              </button>
+              <button
+                type="button"
+                @click="closeAddOrderModal"
+                class="flex-1 bg-gray-200 py-3 rounded-xl hover:bg-gray-300 transition text-sm sm:text-base"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <!-- Modal عرض الفاتورة -->
     <div
@@ -511,7 +692,7 @@
 definePageMeta({ layout: "dashboard" });
 
 import { supabase } from '~/lib/supabase';
-// ❌ تم إزالة استيراد sendNewOrderNotification عشان الإشعارات هتتبعت من الـ API
+import { sendNewOrderNotification } from '~/lib/notification';
 
 const userStore = useUserStore();
 
@@ -524,6 +705,19 @@ const filterStatus = ref("all");
 const filterSaleType = ref("all");
 const showInvoiceModal = ref(false);
 const currentInvoice = ref(null);
+
+// ✅ State للمودال
+const showAddOrderModal = ref(false);
+const loading = ref(false);
+const newOrder = ref({
+  customer_name: '',
+  customer_phone: '',
+  customer_address: '',
+  sale_type: 'offline',
+  total_price: 0,
+  notes: '',
+  items: []
+});
 
 // ============================================
 // STATUSES & TYPES
@@ -620,7 +814,137 @@ const getProductStock = (productId) => {
 };
 
 // ============================================
-// METHODS - LOAD DATA (مع منع التكرار)
+// METHODS - MODAL
+// ============================================
+
+const openAddOrderModal = () => {
+  if (!userStore?.canEdit) {
+    alert("⚠️ ليس لديك صلاحية لإضافة طلبات");
+    return;
+  }
+  newOrder.value = {
+    customer_name: '',
+    customer_phone: '',
+    customer_address: '',
+    sale_type: 'offline',
+    total_price: 0,
+    notes: '',
+    items: []
+  };
+  showAddOrderModal.value = true;
+};
+
+const closeAddOrderModal = () => {
+  showAddOrderModal.value = false;
+  newOrder.value = {
+    customer_name: '',
+    customer_phone: '',
+    customer_address: '',
+    sale_type: 'offline',
+    total_price: 0,
+    notes: '',
+    items: []
+  };
+  loading.value = false;
+};
+
+const addProductItem = () => {
+  newOrder.value.items.push({
+    name: '',
+    quantity: 1,
+    price: 0,
+    product_id: ''
+  });
+};
+
+const removeProductItem = (index) => {
+  newOrder.value.items.splice(index, 1);
+};
+
+// ✅ دالة إنشاء الطلب مع إرسال إشعار
+const handleCreateOrder = async () => {
+  // التحقق من البيانات
+  if (!newOrder.value.customer_name) {
+    alert('⚠️ الرجاء إدخال اسم العميل');
+    return;
+  }
+  
+  if (!newOrder.value.customer_phone) {
+    alert('⚠️ الرجاء إدخال رقم الهاتف');
+    return;
+  }
+  
+  if (!newOrder.value.total_price || newOrder.value.total_price <= 0) {
+    alert('⚠️ الرجاء إدخال مبلغ صحيح');
+    return;
+  }
+  
+  if (newOrder.value.items.length === 0) {
+    alert('⚠️ الرجاء إضافة منتج واحد على الأقل');
+    return;
+  }
+  
+  for (const item of newOrder.value.items) {
+    if (!item.name) {
+      alert('⚠️ الرجاء إدخال اسم لكل منتج');
+      return;
+    }
+    if (!item.quantity || item.quantity <= 0) {
+      alert('⚠️ الرجاء إدخال كمية صحيحة لكل منتج');
+      return;
+    }
+  }
+  
+  loading.value = true;
+  
+  try {
+    // 1. حفظ الطلب في Supabase
+    const orderData = {
+      customer_name: newOrder.value.customer_name,
+      customer_phone: newOrder.value.customer_phone,
+      customer_address: newOrder.value.customer_address || null,
+      sale_type: newOrder.value.sale_type || 'offline',
+      total_price: newOrder.value.total_price,
+      items: newOrder.value.items,
+      notes: newOrder.value.notes || null,
+      status: 'pending',
+      order_date: new Date().toISOString()
+    };
+    
+    const { data, error } = await supabase
+      .from('orders')
+      .insert([orderData])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    console.log('✅ تم حفظ الطلب:', data);
+    
+    // 2. ✅ إرسال إشعار للمدراء
+    try {
+      await sendNewOrderNotification(data);
+      console.log('✅ تم إرسال الإشعارات');
+    } catch (notifError) {
+      console.error('⚠️ خطأ في إرسال الإشعار:', notifError);
+    }
+    
+    alert('✅ تم إنشاء الطلب وإرسال الإشعارات');
+    
+    // 3. إغلاق المودال وإعادة التحميل
+    closeAddOrderModal();
+    await loadOrders();
+    
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء الطلب:', error);
+    alert('❌ حدث خطأ في إنشاء الطلب: ' + error.message);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// ============================================
+// METHODS - LOAD DATA
 // ============================================
 
 const loadProducts = async () => {
@@ -643,7 +967,6 @@ const loadProducts = async () => {
 
 const loadOrders = async () => {
   try {
-    // جلب طلبات المعرض
     const { data: ordersData, error: ordersError } = await supabase
       .from("orders")
       .select("*")
@@ -653,7 +976,6 @@ const loadOrders = async () => {
       console.error("❌ خطأ في جلب طلبات المعرض:", ordersError);
     }
 
-    // جلب طلبات الموقع
     const { data: customerOrdersData, error: customerOrdersError } =
       await supabase
         .from("customer_orders")
@@ -664,10 +986,8 @@ const loadOrders = async () => {
       console.error("❌ خطأ في جلب طلبات الموقع:", customerOrdersError);
     }
 
-    // ✅ دمج الطلبات مع منع التكرار باستخدام Set
     const orderMap = new Map();
 
-    // إضافة طلبات المعرض
     if (ordersData) {
       ordersData.forEach(order => {
         if (!orderMap.has(order.id)) {
@@ -676,7 +996,6 @@ const loadOrders = async () => {
       });
     }
 
-    // إضافة طلبات الموقع (لو في تكرار، هنفضل الأولى)
     if (customerOrdersData) {
       customerOrdersData.forEach(order => {
         if (!orderMap.has(order.id)) {
@@ -685,7 +1004,6 @@ const loadOrders = async () => {
       });
     }
 
-    // تحويل الـ Map إلى Array وترتيبها
     const allOrders = Array.from(orderMap.values());
     allOrders.sort((a, b) => {
       return new Date(b.order_date) - new Date(a.order_date);
@@ -696,9 +1014,7 @@ const loadOrders = async () => {
       items: getOrderItems(order),
     }));
 
-    console.log(
-      `📦 تم تحميل ${orders.value.length} طلب (${ordersData?.length || 0} من المعرض + ${customerOrdersData?.length || 0} من الموقع، بدون تكرار)`
-    );
+    console.log(`📦 تم تحميل ${orders.value.length} طلب`);
   } catch (error) {
     console.error("❌ خطأ:", error);
   }
@@ -715,8 +1031,6 @@ const restoreProductsToStock = async (order) => {
     console.log("⚠️ لا توجد منتجات في هذا الطلب");
     return;
   }
-
-  console.log(`🔄 جاري إعادة ${items.length} منتج للمخزون للطلب:`, order.id);
 
   let successCount = 0;
   let errorCount = 0;

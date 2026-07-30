@@ -2,7 +2,6 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// 🔥 بيانات Firebase بتاعتك
 const firebaseConfig = {
   apiKey: "AIzaSyDa3OSesqamiRUExJU2cuYqbqUiNApDcCA",
   authDomain: "electrical-store-535f3.firebaseapp.com",
@@ -15,7 +14,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// معالجة الإشعارات في الخلفية (لما التطبيق يكون مقفول)
 messaging.onBackgroundMessage((payload) => {
   console.log('📩 إشعار خلفية:', payload);
   
@@ -29,4 +27,24 @@ messaging.onBackgroundMessage((payload) => {
   };
   
   self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// التعامل مع الضغط على الإشعار
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  const url = event.notification.data?.click_action || '/dashboard/orders';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url === url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    })
+  );
 });

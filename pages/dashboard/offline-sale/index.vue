@@ -493,7 +493,7 @@
     <!-- Toast Notification -->
     <ToastNotification v-model:toast="toast" />
 
-    <!-- نافذة الفاتورة المنبثقة - الجزء المعدل -->
+    <!-- نافذة الفاتورة المنبثقة -->
     <div
       v-if="showInvoiceModal"
       class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto"
@@ -714,6 +714,8 @@ definePageMeta({
 });
 
 import { supabase } from '~/lib/supabase';
+import { sendNewOrderNotification } from '~/lib/notification';
+
 const userStore = useUserStore();
 
 // إعدادات المعرض
@@ -852,7 +854,7 @@ const closeInvoiceModal = () => {
   showInvoiceModal.value = false;
 };
 
-// طباعة الفاتورة من المودال (في نفس التبويب)
+// طباعة الفاتورة من المودال
 const printInvoiceFromModal = () => {
   const printContent = document.getElementById("invoice-content");
   if (!printContent) return;
@@ -1237,13 +1239,33 @@ const completeSale = async () => {
     notes: notes.trim() || null,
   };
 
-  const { error: orderError } = await supabase
+  const { data: orderResult, error: orderError } = await supabase
     .from("orders")
-    .insert([orderData]);
+    .insert([orderData])
+    .select()
+    .single();
 
   if (orderError) {
     showToast(`❌ خطأ: ${orderError.message}`, "error");
     return;
+  }
+
+  // ✅ إرسال إشعار من المتصفح (بسيط وسريع)
+  if (Notification.permission === 'granted') {
+    new Notification('📦 طلب جديد من المعرض', {
+      body: `العميل: ${orderData.customer_name} - المبلغ: ${formatNumber(orderData.total_price)} ج`,
+      icon: '/favicon.ico',
+      vibrate: [200, 100, 200]
+    });
+    console.log('✅ تم إرسال إشعار المتصفح');
+  }
+
+  // ✅ إرسال إشعار للمدراء (الطريقة القديمة - لو مشتغلتش مش مشكلة)
+  try {
+    await sendNewOrderNotification(orderResult);
+    console.log('✅ تم إرسال الإشعارات عن البيع الجديد');
+  } catch (notifError) {
+    console.error('⚠️ خطأ في إرسال الإشعار:', notifError);
   }
 
   // تحديث المخزون
@@ -1257,13 +1279,10 @@ const completeSale = async () => {
     product.stock = newStock;
   }
 
-  showToast("✅ تم تسجيل البيع بنجاح", "success");
+  showToast("✅ تم تسجيل البيع وإرسال الإشعارات بنجاح", "success");
 
   // عرض الفاتورة للمعاينة قبل الطباعة
   showInvoiceModal.value = true;
-
-  // تفريغ البيانات (بعد إغلاق الفاتورة أو بشكل منفصل)
-  // ملاحظة: لا نمسح البيانات فوراً حتى تظهر في الفاتورة
 };
 
 // تحديث المنتجات عند الإغلاق
