@@ -1,415 +1,905 @@
-<!-- pages/collector-dashboard/index.vue -->
+<!-- pages/dashboard/collector-fans/collector-dashboard.vue -->
 <template>
   <div class="min-h-screen bg-gray-50" dir="rtl">
-    <div class="container mx-auto px-4 py-8 sm:py-12">
-      <!-- Loading State -->
-      <div v-if="loading" class="text-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p class="mt-4 text-gray-500">جاري تحميل بيانات المحصل...</p>
-      </div>
-
-      <!-- Collector Data -->
-      <div v-else-if="collector" class="space-y-6">
-        <!-- Header -->
-        <div class="bg-white rounded-2xl shadow p-6">
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <div class="flex items-center gap-3">
-                <NuxtLink to="/dashboard/collector-fans" class="text-blue-600 hover:text-blue-800 text-sm">
-                  ⬅️ العودة
-                </NuxtLink>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
-                  👤 {{ collector.name }}
-                </h1>
-              </div>
-              <p class="text-sm text-gray-500 mt-1">{{ collector.phone || 'لا يوجد رقم' }}</p>
-            </div>
-            <div class="flex gap-2">
-              <span class="px-3 py-1 rounded-full text-sm font-medium" :class="getStatusClass(collector.status || 'active')">
-                {{ collector.status === 'active' ? '✅ نشط' : '⛔ غير نشط' }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow p-5 text-white">
-            <p class="text-sm opacity-90">📦 إجمالي المراوح</p>
-            <p class="text-3xl font-bold mt-1">{{ totalFans }} قطعة</p>
-          </div>
-          <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl shadow p-5 text-white">
-            <p class="text-sm opacity-90">💰 إجمالي المدفوعات</p>
-            <p class="text-3xl font-bold mt-1">{{ formatNumber(totalPaid) }} ج</p>
-          </div>
-          <div class="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl shadow p-5 text-white">
-            <p class="text-sm opacity-90">⚠️ المتبقي</p>
-            <p class="text-3xl font-bold mt-1">{{ formatNumber(totalRemaining) }} ج</p>
-          </div>
-          <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl shadow p-5 text-white">
-            <p class="text-sm opacity-90">📅 عدد الأقساط</p>
-            <p class="text-3xl font-bold mt-1">{{ installments.length }}</p>
-          </div>
-        </div>
-
-        <!-- تفاصيل المراوح المسلمة -->
-        <div class="bg-white rounded-2xl shadow overflow-hidden">
-          <div class="bg-gray-50 p-4 border-b">
-            <h2 class="text-lg font-bold">📦 المراوح المسلمة</h2>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[700px]">
-              <thead class="bg-gray-100">
-                <tr>
-                  <th class="p-3 text-right text-sm">#</th>
-                  <th class="p-3 text-right text-sm">التاريخ</th>
-                  <th class="p-3 text-right text-sm">🔄 عمود</th>
-                  <th class="p-3 text-right text-sm">📌 حائط</th>
-                  <th class="p-3 text-right text-sm">🌀 سقف</th>
-                  <th class="p-3 text-right text-sm">الإجمالي</th>
-                  <th class="p-3 text-right text-sm">المدفوع</th>
-                  <th class="p-3 text-right text-sm">المتبقي</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(delivery, index) in deliveries" :key="delivery.id" class="border-t hover:bg-gray-50">
-                  <td class="p-3">{{ index + 1 }}</td>
-                  <td class="p-3">{{ formatDate(delivery.delivery_date) }}</td>
-                  <td class="p-3">{{ delivery.standing_fans_quantity || 0 }}</td>
-                  <td class="p-3">{{ delivery.wall_fans_quantity || 0 }}</td>
-                  <td class="p-3">{{ delivery.ceiling_fans_quantity || 0 }}</td>
-                  <td class="p-3 font-bold">{{ getTotalFansInDelivery(delivery) }}</td>
-                  <td class="p-3 text-green-600">{{ formatNumber(delivery.paid_amount || 0) }} ج</td>
-                  <td class="p-3 text-orange-600 font-bold">{{ formatNumber(delivery.remaining_amount || 0) }} ج</td>
-                </tr>
-                <tr v-if="deliveries.length === 0">
-                  <td colspan="8" class="text-center py-8 text-gray-400">لا توجد تسليمات</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 💵 الورديات اليومية -->
-        <div class="bg-white rounded-2xl shadow overflow-hidden">
-          <div class="bg-teal-50 p-4 border-b">
-            <h2 class="text-lg font-bold">💵 الورديات اليومية</h2>
-            <p class="text-sm text-gray-500">سجل المدفوعات اليومية للمحصل</p>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[700px]">
-              <thead class="bg-gray-100">
-                <tr>
-                  <th class="p-3 text-right text-sm">#</th>
-                  <th class="p-3 text-right text-sm">التاريخ</th>
-                  <th class="p-3 text-right text-sm">المبلغ</th>
-                  <th class="p-3 text-right text-sm">طريقة الدفع</th>
-                  <th class="p-3 text-right text-sm hidden md:table-cell">ملاحظات</th>
-                  <th class="p-3 text-right text-sm">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(payment, index) in dailyPayments" :key="payment.id" class="border-t hover:bg-gray-50">
-                  <td class="p-3">{{ index + 1 }}</td>
-                  <td class="p-3">{{ formatDate(payment.payment_date) }}</td>
-                  <td class="p-3 text-green-600 font-bold">{{ formatNumber(payment.amount) }} ج</td>
-                  <td class="p-3">
-                    <span :class="payment.payment_method === 'cash' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'" class="px-2 py-1 rounded-full text-xs font-medium">
-                      {{ payment.payment_method === 'cash' ? '💰 كاش' : '🏦 تحويل' }}
-                    </span>
-                  </td>
-                  <td class="p-3 hidden md:table-cell">{{ payment.notes || '-' }}</td>
-                  <td class="p-3">
-                    <button 
-                      v-if="userStore?.canEdit"
-                      @click="deleteDailyPayment(payment.id)" 
-                      class="text-red-600 hover:text-red-800"
-                      title="حذف"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="dailyPayments.length === 0">
-                  <td colspan="6" class="text-center py-8 text-gray-400">
-                    لا توجد ورديات يومية مسجلة
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot class="bg-gray-50 font-bold">
-                <tr class="border-t">
-                  <td colspan="2" class="p-3">📌 الإجمالي</td>
-                  <td class="p-3 text-green-600">{{ formatNumber(totalDailyPayments) }} ج</td>
-                  <td colspan="3"></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-
-        <!-- الأقساط الشهرية -->
-        <div class="bg-white rounded-2xl shadow overflow-hidden">
-          <div class="bg-gray-50 p-4 border-b">
-            <h2 class="text-lg font-bold">📋 الأقساط الشهرية</h2>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[800px]">
-              <thead class="bg-gray-100">
-                <tr>
-                  <th class="p-3 text-right text-sm">#</th>
-                  <th class="p-3 text-right text-sm">الشهر</th>
-                  <th class="p-3 text-right text-sm">تاريخ الاستحقاق</th>
-                  <th class="p-3 text-right text-sm">المبلغ</th>
-                  <th class="p-3 text-right text-sm">المدفوع</th>
-                  <th class="p-3 text-right text-sm">المتبقي</th>
-                  <th class="p-3 text-right text-sm">الحالة</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(inst, index) in groupedInstallments" :key="index" class="border-t hover:bg-gray-50">
-                  <td class="p-3">{{ index + 1 }}</td>
-                  <td class="p-3 font-bold">{{ inst.month_name }} {{ inst.year }}</td>
-                  <td class="p-3">{{ formatDate(inst.due_date) }}</td>
-                  <td class="p-3 text-blue-600 font-bold">{{ formatNumber(inst.total_amount) }} ج</td>
-                  <td class="p-3 text-green-600">{{ formatNumber(inst.total_paid) }} ج</td>
-                  <td class="p-3 text-orange-600 font-bold">{{ formatNumber(inst.total_remaining) }} ج</td>
-                  <td class="p-3">
-                    <span :class="inst.total_remaining <= 0 ? 'bg-green-100 text-green-700' : inst.is_late ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'" class="px-2 py-1 rounded-full text-xs font-medium">
-                      {{ inst.total_remaining <= 0 ? '✅ مدفوع' : inst.is_late ? '⚠️ متأخر' : '⏳ مستحق' }}
-                    </span>
-                  </td>
-                </tr>
-                <tr v-if="groupedInstallments.length === 0">
-                  <td colspan="7" class="text-center py-8 text-gray-400">لا توجد أقساط</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Not Found -->
-      <div v-else class="text-center py-16">
-        <div class="text-6xl mb-4">🔍</div>
-        <h1 class="text-2xl font-bold mb-2">المحصل غير موجود</h1>
-        <p class="text-gray-500">لم نتمكن من العثور على المحصل المطلوب</p>
-        <NuxtLink to="/dashboard/fans" class="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-700">
-          العودة للداشبورد
+    <!-- التحقق من الجلسة -->
+    <div v-if="!isLoggedIn" class="min-h-screen flex items-center justify-center">
+      <div class="text-center">
+        <div class="text-6xl mb-4">🔒</div>
+        <h1 class="text-2xl font-bold mb-2">غير مسموح بالدخول</h1>
+        <p class="text-gray-500 mb-4">يرجى تسجيل الدخول أولاً</p>
+        <NuxtLink 
+          to="/dashboard/collector-fans/login" 
+          class="bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-700 inline-block"
+        >
+          🚪 تسجيل الدخول
         </NuxtLink>
       </div>
     </div>
 
-    <ToastNotification :toast="toast" @close="toast.show = false" />
+    <div v-else-if="loading" class="container mx-auto px-4 py-12 text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+      <p class="mt-4 text-gray-500">جاري تحميل البيانات...</p>
+    </div>
+
+    <div v-else-if="collector" class="container mx-auto px-4 py-6 sm:py-8">
+      <!-- Header -->
+      <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div class="flex items-center gap-3">
+              <div class="bg-gradient-to-br from-blue-600 to-indigo-600 p-3 rounded-2xl shadow-lg">
+                <span class="text-2xl">👤</span>
+              </div>
+              <div>
+                <h1 class="text-2xl font-bold text-gray-800">{{ collector.name }}</h1>
+                <p class="text-sm text-gray-500">📱 {{ collector.phone || 'لا يوجد رقم' }}</p>
+                <p class="text-xs text-gray-400">📍 المنطقة: {{ collector.area || 'غير محدد' }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <span class="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">✅ نشط</span>
+            <button @click="logout" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600 transition text-sm">🚪 خروج</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-2xl shadow p-4 text-center">
+          <p class="text-xs text-gray-500">👥 إجمالي الزبائن</p>
+          <p class="text-2xl font-bold text-blue-600">{{ clients.length }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow p-4 text-center">
+          <p class="text-xs text-gray-500">🔄 إجمالي المراوح</p>
+          <p class="text-2xl font-bold text-blue-600">{{ totalFans }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow p-4 text-center">
+          <p class="text-xs text-gray-500">💰 إجمالي المدفوع</p>
+          <p class="text-2xl font-bold text-green-600">{{ formatNumber(totalPaid) }} ج</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow p-4 text-center">
+          <p class="text-xs text-gray-500">⚠️ إجمالي المتبقي</p>
+          <p class="text-2xl font-bold text-orange-600">{{ formatNumber(totalRemaining) }} ج</p>
+        </div>
+      </div>
+
+      <!-- مناطق الزبائن -->
+      <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6">
+        <h2 class="text-lg font-bold mb-4">📍 المناطق</h2>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="area in areas"
+            :key="area"
+            @click="filterArea = area"
+            class="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border-2"
+            :class="filterArea === area ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-blue-300'"
+          >
+            {{ area }}
+            <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-full mr-1">{{ getClientsByArea(area).length }}</span>
+          </button>
+          <button @click="filterArea = ''" class="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border-2" :class="filterArea === '' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-blue-300'">
+            📋 الكل
+            <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-full mr-1">{{ clients.length }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- قائمة الزبائن -->
+      <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div class="p-4 sm:p-6 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 class="text-lg font-bold">👥 قائمة الزبائن</h2>
+          <button @click="openAddClientModal" class="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition flex items-center gap-2 text-sm">➕ إضافة زبون</button>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="block sm:hidden divide-y">
+          <div v-for="client in filteredClients" :key="client.id" class="p-4 hover:bg-gray-50">
+            <div class="flex justify-between items-start mb-2">
+              <p class="font-bold">{{ client.name }}</p>
+              <span class="text-xs text-gray-500">{{ client.area }}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div><span class="text-gray-500">📱</span> {{ client.phone || '-' }}</div>
+              <div><span class="text-gray-500">🔄</span> {{ getClientTotalFans(client.id) }}</div>
+              <div><span class="text-gray-500">💰</span> <span class="text-green-600">{{ formatNumber(getClientPaid(client.id)) }} ج</span></div>
+              <div><span class="text-gray-500">⚠️</span> <span class="text-orange-600">{{ formatNumber(getClientRemaining(client.id)) }} ج</span></div>
+            </div>
+            <div class="flex gap-2 mt-3">
+              <button @click="viewClient(client.id)" class="flex-1 bg-blue-500 text-white py-1.5 rounded-lg text-xs">👁️ عرض</button>
+              <button @click="printClient(client.id)" class="flex-1 bg-green-500 text-white py-1.5 rounded-lg text-xs">🖨️ طباعة</button>
+              <button @click="deleteClient(client.id)" class="flex-1 bg-red-500 text-white py-1.5 rounded-lg text-xs">🗑️</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop Table -->
+        <div class="hidden sm:block overflow-x-auto">
+          <table class="w-full min-w-[900px]">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="p-3 text-right text-sm">#</th>
+                <th class="p-3 text-right text-sm">الاسم</th>
+                <th class="p-3 text-right text-sm">الهاتف</th>
+                <th class="p-3 text-right text-sm">المنطقة</th>
+                <th class="p-3 text-right text-sm">المراوح</th>
+                <th class="p-3 text-right text-sm">إجمالي المبلغ</th>
+                <th class="p-3 text-right text-sm">المدفوع</th>
+                <th class="p-3 text-right text-sm">المتبقي</th>
+                <th class="p-3 text-right text-sm">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(client, idx) in filteredClients" :key="client.id" class="border-t hover:bg-gray-50">
+                <td class="p-3">{{ idx + 1 }}</td>
+                <td class="p-3 font-medium">{{ client.name }}</td>
+                <td class="p-3">{{ client.phone || '-' }}</td>
+                <td class="p-3"><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs">{{ client.area }}</span></td>
+                <td class="p-3">{{ getClientTotalFans(client.id) }}</td>
+                <td class="p-3 font-bold">{{ formatNumber(getClientTotal(client.id)) }} ج</td>
+                <td class="p-3 text-green-600">{{ formatNumber(getClientPaid(client.id)) }} ج</td>
+                <td class="p-3 text-orange-600 font-bold">{{ formatNumber(getClientRemaining(client.id)) }} ج</td>
+                <td class="p-3">
+                  <div class="flex gap-1">
+                    <button @click="viewClient(client.id)" class="text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg text-xs bg-blue-50 hover:bg-blue-100">👁️</button>
+                    <button @click="printClient(client.id)" class="text-green-600 hover:text-green-800 px-2 py-1 rounded-lg text-xs bg-green-50 hover:bg-green-100">🖨️</button>
+                    <button @click="deleteClient(client.id)" class="text-red-600 hover:text-red-800 px-2 py-1 rounded-lg text-xs bg-red-50 hover:bg-red-100">🗑️</button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="filteredClients.length === 0">
+                <td colspan="9" class="text-center py-12 text-gray-400">
+                  <span class="text-4xl block mb-2">📭</span>
+                  لا يوجد زبائن {{ filterArea ? `في منطقة ${filterArea}` : '' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Not Found -->
+    <div v-else class="container mx-auto px-4 py-16 text-center">
+      <div class="text-6xl mb-4">🔍</div>
+      <h1 class="text-2xl font-bold mb-2">المحصل غير موجود</h1>
+      <p class="text-gray-500">لم نتمكن من العثور على المحصل المطلوب</p>
+      <NuxtLink to="/dashboard/collector-fans/login" class="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-700">
+        العودة لتسجيل الدخول
+      </NuxtLink>
+    </div>
+
+    <!-- ================= مودال إضافة زبون ================= -->
+    <div v-if="showClientModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showClientModal = false">
+      <div class="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div class="sticky top-0 bg-white border-b p-4 rounded-t-3xl">
+          <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">➕ إضافة زبون جديد</h2>
+            <button @click="showClientModal = false" class="text-2xl hover:text-gray-600">&times;</button>
+          </div>
+        </div>
+
+        <div class="p-6">
+          <form @submit.prevent="saveClient" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><span class="text-red-500">*</span> اسم الزبون</label>
+                <input v-model="clientForm.name" type="text" required placeholder="اسم الزبون" class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>
+                <input v-model="clientForm.phone" type="tel" placeholder="رقم الهاتف" class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition dir-ltr" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1"><span class="text-red-500">*</span> العنوان</label>
+                <input v-model="clientForm.address" type="text" required placeholder="العنوان الكامل" class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1"><span class="text-red-500">*</span> المنطقة</label>
+                <input v-model="clientForm.area" type="text" required placeholder="المنطقة" class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+              <textarea v-model="clientForm.notes" rows="2" placeholder="أي ملاحظات إضافية" class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"></textarea>
+            </div>
+
+            <div class="flex gap-3 pt-4 border-t">
+              <button type="submit" :disabled="loading" class="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">
+                {{ loading ? 'جاري الحفظ...' : '✅ إضافة الزبون' }}
+              </button>
+              <button type="button" @click="showClientModal = false" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition">إلغاء</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= مودال عرض الزبون ================= -->
+    <div v-if="showViewModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showViewModal = false">
+      <div class="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div class="sticky top-0 bg-white border-b p-4 rounded-t-3xl">
+          <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">👤 {{ selectedClient?.name }}</h2>
+            <button @click="showViewModal = false" class="text-2xl hover:text-gray-600">&times;</button>
+          </div>
+        </div>
+
+        <div class="p-6" id="client-report">
+          <!-- Client Info -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-2xl">
+            <div><span class="text-gray-500">📱 الهاتف:</span> <span class="font-semibold">{{ selectedClient?.phone || '-' }}</span></div>
+            <div><span class="text-gray-500">📍 العنوان:</span> <span class="font-semibold">{{ selectedClient?.address }}</span></div>
+            <div><span class="text-gray-500">🏠 المنطقة:</span> <span class="font-semibold">{{ selectedClient?.area }}</span></div>
+          </div>
+
+          <!-- زر إضافة منتج -->
+          <div class="mb-4">
+            <button 
+              @click="openAddProductModal" 
+              class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition flex items-center gap-2 text-sm"
+            >
+              ➕ إضافة منتج
+            </button>
+          </div>
+
+          <!-- Products -->
+          <h3 class="font-bold text-lg mb-3">🔄 المراوح والمنتجات</h3>
+          <div class="overflow-x-auto mb-6">
+            <table class="w-full min-w-[700px] text-sm">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="p-3 text-right">النوع</th>
+                  <th class="p-3 text-right">الكمية</th>
+                  <th class="p-3 text-right">سعر الوحدة</th>
+                  <th class="p-3 text-right">الإجمالي</th>
+                  <th class="p-3 text-right">المدفوع</th>
+                  <th class="p-3 text-right">المتبقي</th>
+                  <th class="p-3 text-right">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(product, idx) in selectedClientProducts" :key="idx" class="border-t hover:bg-gray-50">
+                  <td class="p-3">{{ getProductTypeName(product.product_type) }}</td>
+                  <td class="p-3">{{ product.quantity }}</td>
+                  <td class="p-3">{{ formatNumber(product.unit_price) }} ج</td>
+                  <td class="p-3 font-bold">{{ formatNumber(product.total_price) }} ج</td>
+                  <td class="p-3 text-green-600">{{ formatNumber(product.paid_amount) }} ج</td>
+                  <td class="p-3 text-orange-600 font-bold">{{ formatNumber(product.remaining_amount) }} ج</td>
+                  <td class="p-3">
+                    <button 
+                      @click="deleteProduct(product.id)" 
+                      class="text-red-600 hover:text-red-800 text-sm"
+                    >
+                      🗑️ حذف
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="selectedClientProducts.length === 0">
+                  <td colspan="7" class="text-center py-4 text-gray-400">لا توجد منتجات</td>
+                </tr>
+              </tbody>
+              <tfoot class="bg-gray-50 font-bold">
+                <tr class="border-t">
+                  <td colspan="3" class="p-3">📌 الإجمالي الكلي</td>
+                  <td class="p-3">{{ formatNumber(selectedClientTotal) }} ج</td>
+                  <td class="p-3 text-green-600">{{ formatNumber(selectedClientPaid) }} ج</td>
+                  <td class="p-3 text-orange-600">{{ formatNumber(selectedClientRemaining) }} ج</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 pt-4 border-t">
+            <button @click="printClientReport" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2">🖨️ طباعة التقرير</button>
+            <button @click="showViewModal = false" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition">إغلاق</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= مودال إضافة منتج للزبون ================= -->
+    <div v-if="showAddProductModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showAddProductModal = false">
+      <div class="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div class="sticky top-0 bg-white border-b p-4 rounded-t-3xl">
+          <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">➕ إضافة منتج للزبون: {{ selectedClient?.name }}</h2>
+            <button @click="showAddProductModal = false" class="text-2xl hover:text-gray-600">&times;</button>
+          </div>
+        </div>
+
+        <div class="p-6">
+          <form @submit.prevent="saveProduct" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  <span class="text-red-500">*</span> نوع المنتج
+                </label>
+                <select
+                  v-model="productForm.product_type"
+                  required
+                  class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                >
+                  <option value="">-- اختر النوع --</option>
+                  <option value="standing">🔄 مروحة عمود</option>
+                  <option value="wall">📌 مروحة حائط</option>
+                  <option value="ceiling">🌀 مروحة سقف</option>
+                  <option value="external">📦 منتج خارجي</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  <span class="text-red-500">*</span> الكمية
+                </label>
+                <input
+                  v-model.number="productForm.quantity"
+                  type="number"
+                  min="1"
+                  required
+                  placeholder="الكمية"
+                  @input="calculateProductTotal"
+                  class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  <span class="text-red-500">*</span> سعر الوحدة
+                </label>
+                <input
+                  v-model.number="productForm.unit_price"
+                  type="number"
+                  min="0"
+                  required
+                  placeholder="سعر الوحدة"
+                  @input="calculateProductTotal"
+                  class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  المبلغ المدفوع (مقدم)
+                </label>
+                <input
+                  v-model.number="productForm.paid_amount"
+                  type="number"
+                  min="0"
+                  placeholder="المدفوع"
+                  @input="calculateProductTotal"
+                  class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  تاريخ التسليم
+                </label>
+                <input
+                  v-model="productForm.delivery_date"
+                  type="date"
+                  class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+              <textarea
+                v-model="productForm.notes"
+                rows="2"
+                placeholder="أي ملاحظات إضافية"
+                class="w-full p-3 border rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition"
+              ></textarea>
+            </div>
+
+            <!-- ملخص -->
+            <div class="bg-gray-50 rounded-xl p-4">
+              <h3 class="font-bold text-sm mb-2">📊 ملخص المنتج</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p class="text-xs text-gray-500">الإجمالي</p>
+                  <p class="text-lg font-bold text-blue-600">
+                    {{ formatNumber(productForm.total_price || 0) }} ج
+                  </p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">المدفوع</p>
+                  <p class="text-lg font-bold text-green-600">
+                    {{ formatNumber(productForm.paid_amount || 0) }} ج
+                  </p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">المتبقي</p>
+                  <p class="text-lg font-bold text-orange-600">
+                    {{ formatNumber((productForm.total_price || 0) - (productForm.paid_amount || 0)) }} ج
+                  </p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500">الكمية</p>
+                  <p class="text-lg font-bold">{{ productForm.quantity || 0 }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex gap-3 pt-4 border-t">
+              <button type="submit" :disabled="loading"
+                class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+                {{ loading ? 'جاري الحفظ...' : '✅ إضافة المنتج' }}
+              </button>
+              <button type="button" @click="showAddProductModal = false"
+                class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition">
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <ToastNotification v-model:toast="toast" />
   </div>
 </template>
 
 <script setup>
-import { useUserStore } from '~/stores/user';
+import { supabase } from '~/lib/supabase';
 
-definePageMeta({
-  layout: 'dashboard',
-  middleware: 'admin-only',
+const toast = ref({ show: false, message: "", type: "success", icon: "✅" });
+const loading = ref(false);
+const isLoggedIn = ref(false);
+const showClientModal = ref(false);
+const showViewModal = ref(false);
+const showAddProductModal = ref(false);
+const filterArea = ref("");
+const collector = ref(null);
+const clients = ref([]);
+const products = ref([]);
+const payments = ref([]);
+const selectedClient = ref(null);
+const selectedClientProducts = ref([]);
+
+const clientForm = ref({
+  name: "",
+  phone: "",
+  address: "",
+  area: "",
+  notes: "",
 });
 
-import { supabase } from '~/lib/supabase';
-const route = useRoute();
-const userStore = useUserStore();
+const productForm = ref({
+  product_type: "",
+  quantity: 0,
+  unit_price: 0,
+  total_price: 0,
+  paid_amount: 0,
+  delivery_date: new Date().toISOString().split("T")[0],
+  notes: "",
+});
 
-// State
-const collector = ref(null);
-const deliveries = ref([]);
-const installments = ref([]);
-const dailyPayments = ref([]);
-const loading = ref(true);
-const searchQuery = ref('');
-const toast = ref({ show: false, message: '', type: 'success' });
+const showToast = (message, type = "success") => {
+  const icons = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
+  toast.value = { show: true, message, type, icon: icons[type] || "✅" };
+  setTimeout(() => { toast.value.show = false; }, 3000);
+};
 
-// Computed
+// ===================== Computed =====================
+const areas = computed(() => {
+  return [...new Set(clients.value.map(c => c.area).filter(Boolean))];
+});
+
+const filteredClients = computed(() => {
+  if (!filterArea.value) return clients.value;
+  return clients.value.filter(c => c.area === filterArea.value);
+});
+
 const totalFans = computed(() => {
-  return deliveries.value.reduce((sum, d) => {
-    return sum + (d.standing_fans_quantity || 0) + (d.wall_fans_quantity || 0) + (d.ceiling_fans_quantity || 0);
-  }, 0);
+  let count = 0;
+  products.value.forEach(p => { count += p.quantity || 0; });
+  return count;
 });
 
 const totalPaid = computed(() => {
-  // المدفوع من تسليمات المراوح
-  const deliveryPaid = deliveries.value.reduce((sum, d) => sum + (d.paid_amount || 0), 0);
-  
-  // المدفوع من الورديات اليومية
-  const dailyPaid = dailyPayments.value.reduce((sum, d) => sum + (d.amount || 0), 0);
-  
-  // المدفوع من الأقساط (اللي حالتها paid)
-  const installmentPaid = installments.value
-    .filter(i => i.status === 'paid')
-    .reduce((sum, i) => sum + (i.paid_amount || 0), 0);
-  
-  // ✅ الإجمالي الكلي
-  return deliveryPaid + dailyPaid + installmentPaid;
+  let total = 0;
+  products.value.forEach(p => { total += p.paid_amount || 0; });
+  payments.value.forEach(p => { total += p.amount || 0; });
+  return total;
 });
 
-// ✅ تعديل totalRemaining - المتبقي الكلي
 const totalRemaining = computed(() => {
-  // إجمالي قيمة المراوح المسلمة
-  const totalDeliveryValue = deliveries.value.reduce((sum, d) => sum + (d.total_delivery || 0), 0);
-  
-  // إجمالي المدفوعات (من الدالة المحسوبة)
-  const paid = totalPaid.value;
-  
-  // المتبقي = إجمالي قيمة المراوح - إجمالي المدفوعات
-  return totalDeliveryValue - paid;
-});
-// ✅ إضافة Computed جديد لتوضيح التفاصيل
-const totalDeliveryValue = computed(() => {
-  return deliveries.value.reduce((sum, d) => sum + (d.total_delivery || 0), 0);
+  let total = 0;
+  products.value.forEach(p => { total += p.remaining_amount || 0; });
+  return total;
 });
 
-const totalDeliveryPaid = computed(() => {
-  return deliveries.value.reduce((sum, d) => sum + (d.paid_amount || 0), 0);
-});
-const totalDailyPayments = computed(() => {
-  return dailyPayments.value.reduce((sum, p) => sum + (p.amount || 0), 0);
+const selectedClientTotal = computed(() => {
+  return selectedClientProducts.value.reduce((sum, p) => sum + (p.total_price || 0), 0);
 });
 
-const groupedInstallments = computed(() => {
-  const grouped = {};
-  installments.value.forEach(inst => {
-    const dueDate = new Date(inst.due_date);
-    const monthKey = `${dueDate.getFullYear()}-${dueDate.getMonth() + 1}`;
-    const monthName = dueDate.toLocaleDateString('ar-EG', { month: 'long' });
-    const year = dueDate.getFullYear();
-    
-    if (!grouped[monthKey]) {
-      grouped[monthKey] = {
-        month_name: monthName,
-        year: year,
-        due_date: dueDate,
-        total_amount: 0,
-        total_paid: 0,
-        total_remaining: 0,
-        is_late: false,
-      };
-    }
-    grouped[monthKey].total_amount += inst.amount;
-    grouped[monthKey].total_paid += inst.paid_amount || 0;
-    grouped[monthKey].total_remaining += inst.amount - (inst.paid_amount || 0);
-  });
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const result = Object.values(grouped);
-  result.forEach(month => {
-    month.is_late = month.due_date < today && month.total_remaining > 0;
-  });
-  result.sort((a, b) => a.due_date - b.due_date);
-  return result;
+const selectedClientPaid = computed(() => {
+  return selectedClientProducts.value.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
 });
 
-// Methods
+const selectedClientRemaining = computed(() => {
+  return selectedClientProducts.value.reduce((sum, p) => sum + (p.remaining_amount || 0), 0);
+});
+
+// ===================== Functions =====================
 const formatNumber = (num) => {
-  if (!num && num !== 0) return '0';
-  return num.toLocaleString('ar-EG');
+  if (!num && num !== 0) return "0";
+  return num.toLocaleString("ar-EG");
 };
 
-const formatDate = (date) => {
-  if (!date) return '-';
-  return new Date(date).toLocaleDateString('ar-EG');
+const getProductTypeName = (type) => {
+  const types = {
+    standing: "🔄 عمود",
+    wall: "📌 حائط",
+    ceiling: "🌀 سقف",
+    external: "📦 خارجي"
+  };
+  return types[type] || type;
 };
 
-const getTotalFansInDelivery = (delivery) => {
-  return (delivery.standing_fans_quantity || 0) + (delivery.wall_fans_quantity || 0) + (delivery.ceiling_fans_quantity || 0);
+const getClientProducts = (clientId) => {
+  return products.value.filter(p => p.client_id === clientId);
 };
 
-const getStatusClass = (status) => {
-  return status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+const getClientTotalFans = (clientId) => {
+  return getClientProducts(clientId).reduce((sum, p) => sum + (p.quantity || 0), 0);
 };
 
-// ✅ حذف وردية يومية
-const deleteDailyPayment = async (id) => {
-  if (!userStore.canEdit) {
-    alert('⚠️ ليس لديك صلاحية لحذف الورديات');
-    return;
+const getClientTotal = (clientId) => {
+  return getClientProducts(clientId).reduce((sum, p) => sum + (p.total_price || 0), 0);
+};
+
+const getClientPaid = (clientId) => {
+  const productPaid = getClientProducts(clientId).reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+  const clientPayments = payments.value.filter(p => p.client_id === clientId);
+  const paymentAmount = clientPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  return productPaid + paymentAmount;
+};
+
+const getClientRemaining = (clientId) => {
+  return getClientTotal(clientId) - getClientPaid(clientId);
+};
+
+const getClientsByArea = (area) => {
+  return clients.value.filter(c => c.area === area);
+};
+
+// ===================== Check Session =====================
+const checkSession = () => {
+  const session = localStorage.getItem('collector_session');
+  if (!session) {
+    isLoggedIn.value = false;
+    return false;
   }
-
-  if (!confirm('⚠️ هل أنت متأكد من حذف هذه الوردية؟')) return;
 
   try {
-    const { error } = await supabase
-      .from('collector_daily_payments')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    alert('✅ تم حذف الوردية بنجاح');
-    
-    // إعادة تحميل البيانات
-    await loadCollectorData();
-
-  } catch (error) {
-    console.error('❌ خطأ:', error);
-    alert('خطأ: ' + error.message);
+    const data = JSON.parse(session);
+    if (!data.isCollector) {
+      isLoggedIn.value = false;
+      return false;
+    }
+    return data;
+  } catch (e) {
+    isLoggedIn.value = false;
+    return false;
   }
 };
 
-// Load data
+// ===================== Data Loading =====================
 const loadCollectorData = async () => {
-  const collectorId = route.query.id;
-  
-  if (!collectorId) {
+  const sessionData = checkSession();
+  if (!sessionData) {
+    isLoggedIn.value = false;
     loading.value = false;
     return;
   }
 
+  isLoggedIn.value = true;
+  loading.value = true;
+
   try {
-    // جلب بيانات المحصل
     const { data: collectorData, error: collectorError } = await supabase
       .from('collectors')
       .select('*')
-      .eq('id', collectorId)
+      .eq('id', sessionData.id)
       .single();
 
-    if (collectorError) throw collectorError;
+    if (collectorError || !collectorData) {
+      showToast('❌ لم يتم العثور على المحصل', 'error');
+      localStorage.removeItem('collector_session');
+      isLoggedIn.value = false;
+      loading.value = false;
+      return;
+    }
+
+    if (collectorData.status !== 'active') {
+      showToast('⚠️ الحساب غير نشط، يرجى التواصل مع الإدارة', 'warning');
+      localStorage.removeItem('collector_session');
+      isLoggedIn.value = false;
+      loading.value = false;
+      return;
+    }
+
     collector.value = collectorData;
 
-    // جلب تسليمات المراوح
-    const { data: deliveriesData, error: deliveriesError } = await supabase
-      .from('collector_fans_delivery')
+    const { data: clientsData, error: clientsError } = await supabase
+      .from('clients')
       .select('*')
-      .eq('collector_id', collectorId)
-      .order('delivery_date', { ascending: false });
+      .eq('collector_id', collectorData.id)
+      .order('name');
 
-    if (deliveriesError) throw deliveriesError;
-    deliveries.value = deliveriesData || [];
+    if (clientsError) throw clientsError;
+    clients.value = clientsData || [];
 
-    // جلب الأقساط
-    const { data: installmentsData, error: installmentsError } = await supabase
-      .from('collector_installments')
-      .select('*')
-      .eq('collector_id', collectorId)
-      .order('due_date', { ascending: true });
+    const clientIds = clients.value.map(c => c.id);
+    if (clientIds.length > 0) {
+      const { data: productsData } = await supabase
+        .from('client_products')
+        .select('*')
+        .in('client_id', clientIds);
+      products.value = productsData || [];
 
-    if (installmentsError) throw installmentsError;
-    installments.value = installmentsData || [];
-
-    // ✅ جلب الورديات اليومية
-    const { data: dailyPaymentsData, error: dailyPaymentsError } = await supabase
-      .from('collector_daily_payments')
-      .select('*')
-      .eq('collector_id', collectorId)
-      .order('payment_date', { ascending: false });
-
-    if (dailyPaymentsError) throw dailyPaymentsError;
-    dailyPayments.value = dailyPaymentsData || [];
+      const { data: paymentsData } = await supabase
+        .from('client_payments')
+        .select('*')
+        .in('client_id', clientIds);
+      payments.value = paymentsData || [];
+    }
 
   } catch (error) {
     console.error('❌ خطأ:', error);
-    toast.value = { show: true, message: '❌ حدث خطأ في تحميل البيانات', type: 'error' };
+    showToast('❌ حدث خطأ في تحميل البيانات', 'error');
   } finally {
     loading.value = false;
   }
 };
 
+// ===================== Client CRUD =====================
+const openAddClientModal = () => {
+  clientForm.value = { name: "", phone: "", address: "", area: "", notes: "" };
+  showClientModal.value = true;
+};
+
+const saveClient = async () => {
+  if (!collector.value) return;
+
+  if (!clientForm.value.name) {
+    showToast("⚠️ الرجاء إدخال اسم الزبون", "warning");
+    return;
+  }
+  if (!clientForm.value.address) {
+    showToast("⚠️ الرجاء إدخال العنوان", "warning");
+    return;
+  }
+  if (!clientForm.value.area) {
+    showToast("⚠️ الرجاء إدخال المنطقة", "warning");
+    return;
+  }
+
+  loading.value = true;
+
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .insert([{
+        collector_id: collector.value.id,
+        name: clientForm.value.name,
+        phone: clientForm.value.phone,
+        address: clientForm.value.address,
+        area: clientForm.value.area,
+        notes: clientForm.value.notes,
+      }])
+      .select();
+
+    if (error) throw error;
+
+    showToast(`✅ تم إضافة الزبون "${clientForm.value.name}" بنجاح`, "success");
+    showClientModal.value = false;
+    await loadCollectorData();
+
+  } catch (error) {
+    console.error('❌ خطأ:', error);
+    showToast("❌ خطأ: " + error.message, "error");
+  } finally {
+    loading.value = false;
+  }
+};
+
+const deleteClient = async (id) => {
+  if (!confirm("⚠️ هل أنت متأكد من حذف هذا الزبون وجميع بياناته؟")) return;
+
+  try {
+    const { error } = await supabase.from('clients').delete().eq('id', id);
+    if (error) throw error;
+    showToast("✅ تم حذف الزبون بنجاح", "success");
+    await loadCollectorData();
+  } catch (error) {
+    console.error('❌ خطأ:', error);
+    showToast("❌ خطأ: " + error.message, "error");
+  }
+};
+
+// ===================== Product CRUD =====================
+
+// فتح مودال إضافة منتج
+const openAddProductModal = () => {
+  productForm.value = {
+    product_type: "",
+    quantity: 0,
+    unit_price: 0,
+    total_price: 0,
+    paid_amount: 0,
+    delivery_date: new Date().toISOString().split("T")[0],
+    notes: "",
+  };
+  showAddProductModal.value = true;
+};
+
+// حساب إجمالي المنتج
+const calculateProductTotal = () => {
+  productForm.value.total_price = (productForm.value.quantity || 0) * (productForm.value.unit_price || 0);
+};
+
+// حفظ المنتج
+const saveProduct = async () => {
+  if (!selectedClient.value) return;
+
+  if (!productForm.value.product_type) {
+    showToast("⚠️ الرجاء اختيار نوع المنتج", "warning");
+    return;
+  }
+  if (!productForm.value.quantity || productForm.value.quantity <= 0) {
+    showToast("⚠️ الرجاء إدخال الكمية", "warning");
+    return;
+  }
+  if (!productForm.value.unit_price || productForm.value.unit_price <= 0) {
+    showToast("⚠️ الرجاء إدخال سعر الوحدة", "warning");
+    return;
+  }
+
+  loading.value = true;
+
+  try {
+    const total = (productForm.value.quantity || 0) * (productForm.value.unit_price || 0);
+    const paid = productForm.value.paid_amount || 0;
+    const remaining = total - paid;
+
+    const { data, error } = await supabase
+      .from('client_products')
+      .insert([{
+        client_id: selectedClient.value.id,
+        product_type: productForm.value.product_type,
+        quantity: productForm.value.quantity,
+        unit_price: productForm.value.unit_price,
+        total_price: total,
+        paid_amount: paid,
+        remaining_amount: remaining,
+        delivery_date: productForm.value.delivery_date || new Date().toISOString().split("T")[0],
+        notes: productForm.value.notes || null,
+      }])
+      .select();
+
+    if (error) throw error;
+
+    showToast(`✅ تم إضافة المنتج بنجاح`, "success");
+    showAddProductModal.value = false;
+    
+    // إعادة تحميل بيانات الزبون
+    await loadCollectorData();
+    
+    // إعادة فتح عرض الزبون
+    await viewClient(selectedClient.value.id);
+
+  } catch (error) {
+    console.error('❌ خطأ:', error);
+    showToast("❌ خطأ: " + error.message, "error");
+  } finally {
+    loading.value = false;
+  }
+};
+
+// حذف منتج
+const deleteProduct = async (productId) => {
+  if (!confirm("⚠️ هل أنت متأكد من حذف هذا المنتج؟")) return;
+
+  try {
+    const { error } = await supabase
+      .from('client_products')
+      .delete()
+      .eq('id', productId);
+
+    if (error) throw error;
+
+    showToast("✅ تم حذف المنتج بنجاح", "success");
+    await loadCollectorData();
+    
+    // إعادة فتح عرض الزبون إذا كان مفتوح
+    if (selectedClient.value) {
+      await viewClient(selectedClient.value.id);
+    }
+  } catch (error) {
+    console.error('❌ خطأ:', error);
+    showToast("❌ خطأ: " + error.message, "error");
+  }
+};
+
+// ===================== View & Print =====================
+const viewClient = async (id) => {
+  const client = clients.value.find(c => c.id === id);
+  if (!client) return;
+  selectedClient.value = client;
+  selectedClientProducts.value = products.value.filter(p => p.client_id === id);
+  showViewModal.value = true;
+};
+
+const printClient = (id) => {
+  viewClient(id);
+  setTimeout(() => printClientReport(), 500);
+};
+
+const printClientReport = () => {
+  const content = document.getElementById('client-report');
+  if (!content) return;
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html>
+    <html dir="rtl">
+    <head>
+      <title>تقرير الزبون - ${selectedClient.value?.name}</title>
+      <meta charset="UTF-8">
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Cairo', sans-serif; padding: 30px; background: white; }
+        .no-print { display: none; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+        .text-green { color: #16a34a; }
+        .text-orange { color: #d97706; }
+        .bg-gray-50 { background: #f9fafb; }
+        .rounded { border-radius: 8px; }
+        .p-4 { padding: 16px; }
+        .mb-4 { margin-bottom: 16px; }
+      </style>
+    </head>
+    <body>
+      <div style="max-width: 800px; margin: 0 auto;">${content.outerHTML}</div>
+      <div class="no-print" style="text-align: center; margin-top: 20px;">
+        <button onclick="window.print()" style="padding: 10px 20px; margin: 5px; cursor: pointer; border: none; background: #2563eb; color: white; border-radius: 10px;">🖨️ طباعة</button>
+        <button onclick="window.close()" style="padding: 10px 20px; margin: 5px; cursor: pointer; border: none; background: #ef4444; color: white; border-radius: 10px;">❌ إغلاق</button>
+      </div>
+      <script>setTimeout(() => { window.print(); }, 1000);<\/script>
+    </body>
+    </html>
+  `);
+  win.document.close();
+};
+
+const logout = () => {
+  localStorage.removeItem('collector_session');
+  isLoggedIn.value = false;
+  collector.value = null;
+  clients.value = [];
+  products.value = [];
+  payments.value = [];
+  navigateTo('/dashboard/collector-fans/login');
+};
+
+// ===================== On Mounted =====================
 onMounted(() => {
   loadCollectorData();
 });
 </script>
+
+<style scoped>
+.dir-ltr {
+  direction: ltr;
+  display: inline-block;
+}
+</style>

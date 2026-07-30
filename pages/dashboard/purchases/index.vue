@@ -1319,7 +1319,22 @@ const loadProducts = async () => {
     showToast("❌ حدث خطأ في تحميل المنتجات", "error");
   }
 };
+// أضف هذه الدالة في script section داخل purchases/index.vue
 
+// إرسال إشعار إيميل للمشتريات
+const sendEmailForPurchase = async (purchaseData) => {
+  try {
+    const { sendEmailNotification } = await import('~/lib/email');
+    const result = await sendEmailNotification(purchaseData, 'purchase');
+    if (result.success) {
+      console.log('✅ تم إرسال إيميل المشتريات بنجاح');
+    } else {
+      console.error('⚠️ فشل إرسال إيميل المشتريات:', result.error);
+    }
+  } catch (error) {
+    console.error('⚠️ خطأ في إرسال إيميل المشتريات:', error);
+  }
+};
 // ✅ جلب المشتريات
 const loadPurchases = async () => {
   try {
@@ -1555,6 +1570,7 @@ const addBulkPurchase = async () => {
 };
 
 // ✅ إضافة شراء (الرئيسية)
+// استبدل دالة addPurchase بهذه النسخة المعدلة
 const addPurchase = async () => {
   if (!userStore.canEdit) {
     showToast("⚠️ ليس لديك صلاحية لإضافة مشتريات", "warning");
@@ -1565,11 +1581,49 @@ const addPurchase = async () => {
 
   try {
     let success = false;
+    let purchaseDataForEmail = null;
 
     if (addType.value === "bulk") {
       success = await addBulkPurchase();
+      if (success) {
+        purchaseDataForEmail = {
+          customer_name: bulkInvoice.value.supplier_name || 'مورد',
+          customer_phone: null,
+          items: bulkInvoice.value.items.map(item => ({
+            name: item.type === 'new' ? item.newProductName : (products.value.find(p => p.id === item.product_id)?.name || 'منتج'),
+            price: item.unit_price,
+            quantity: item.quantity
+          })),
+          total_price: bulkTotal.value,
+          payment_method: 'cash',
+          cashier_name: userStore.user?.email,
+          supplier_name: bulkInvoice.value.supplier_name,
+          invoice_number: bulkInvoice.value.invoice_number,
+          notes: `فاتورة شراء - ${bulkInvoice.value.invoice_number}`
+        };
+      }
     } else {
       success = await addSinglePurchase();
+      if (success) {
+        const productName = addType.value === 'new' 
+          ? newProduct.value.name 
+          : (products.value.find(p => p.id === form.value.product_id)?.name || 'منتج');
+        purchaseDataForEmail = {
+          customer_name: form.value.supplier_name || 'مورد',
+          customer_phone: null,
+          items: [{
+            name: productName,
+            price: form.value.unit_price,
+            quantity: form.value.quantity
+          }],
+          total_price: calculatedTotal.value,
+          payment_method: 'cash',
+          cashier_name: userStore.user?.email,
+          supplier_name: form.value.supplier_name,
+          invoice_number: form.value.invoice_number,
+          notes: `شراء منتج ${productName}`
+        };
+      }
     }
 
     if (!success) {
@@ -1577,7 +1631,12 @@ const addPurchase = async () => {
       return;
     }
 
-    showToast("✅ تم إضافة الفاتورة بنجاح", "success");
+    // ✅ إرسال إشعار إيميل للمشتريات
+    if (purchaseDataForEmail) {
+      await sendEmailForPurchase(purchaseDataForEmail);
+    }
+
+    showToast("✅ تم إضافة الفاتورة وإرسال الإيميل بنجاح", "success");
 
     showAddModal.value = false;
     form.value = {

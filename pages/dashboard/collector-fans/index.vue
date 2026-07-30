@@ -2,8 +2,17 @@
 <template>
   <div class="p-3 sm:p-4 md:p-6 bg-gray-50 min-h-screen" dir="rtl">
     <!-- Header -->
-    <FansHeader />
-
+    <div
+      class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4"
+    >
+      <FansHeader />
+      <NuxtLink
+        to="/dashboard/collector-fans/login"
+        class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm whitespace-nowrap"
+      >
+        <span>👤</span> دخول المحصلين
+      </NuxtLink>
+    </div>
     <!-- بطاقات إحصائيات المراوح -->
     <FansStatsCards
       :total-fans-purchased="totalFansPurchased"
@@ -72,7 +81,12 @@
       @delete-collector="deleteCollector"
       @view-collector="navigateToCollector"
     />
-
+    <!-- 3.5. إدارة المحصلين -->
+    <CollectorsManagement
+      v-if="activeTab === 'collectors_management'"
+      :user-store="userStore"
+      @refresh="loadCollectors"
+    />
     <!-- 4. الأقساط الشهرية -->
     <InstallmentsReport
       v-if="activeTab === 'installments'"
@@ -188,10 +202,11 @@
 
 <script setup>
 import { useUserStore } from "~/stores/user";
-
+// في الـ script بعد imports الأخرى
+import CollectorsManagement from "~/components/fans/CollectorsManagement.vue";
 definePageMeta({ layout: "dashboard", middleware: "admin-only" });
 
-import { supabase } from '~/lib/supabase';
+import { supabase } from "~/lib/supabase";
 const userStore = useUserStore();
 
 // ===================== State =====================
@@ -1695,6 +1710,7 @@ const tabs = [
   { name: "تسليم مراوح", value: "delivery", icon: "📦" },
   { name: "وردية يومية", value: "daily_payment", icon: "💵" },
   { name: "المحصلين", value: "collectors", icon: "👥" },
+  { name: "إدارة المحصلين", value: "collectors_management", icon: "⚙️" },
   { name: "الأقساط الشهرية", value: "installments", icon: "📋" },
   { name: "تقارير المحصلين", value: "report", icon: "📊" },
   { name: "مورد المراوح", value: "supplier", icon: "🏭" },

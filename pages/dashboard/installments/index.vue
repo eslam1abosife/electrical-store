@@ -753,6 +753,7 @@
               v-model="paymentData.notes"
               class="w-full p-2.5 sm:p-3 border rounded-xl text-sm"
               rows="2"
+              placeholder="أي ملاحظات إضافية..."
             ></textarea>
           </div>
 
@@ -876,7 +877,7 @@ definePageMeta({
   middleware: "admin-only",
 });
 
-import { supabase } from '~/lib/supabase';
+import { supabase } from "~/lib/supabase";
 const userStore = useUserStore();
 
 // ✅ Toast state
@@ -1087,6 +1088,8 @@ const createContract = async () => {
     if (paymentsError) throw paymentsError;
 
     showToast("✅ تم إنشاء عقد التقسيط بنجاح", "success");
+    // بعد showToast
+    await sendContractEmail(contract[0]);
     resetForm();
     loadContracts();
     activeTab.value = "contracts";
@@ -1097,7 +1100,54 @@ const createContract = async () => {
     loading.value = false;
   }
 };
+// ==================== إرسال إيميلات التقسيط ====================
 
+// 1️⃣ إرسال إيميل عند إنشاء عقد جديد
+const sendContractEmail = async (contract) => {
+  try {
+    const { sendEmailNotification } = await import("~/lib/email");
+    const result = await sendEmailNotification(
+      contract,
+      "installment_contract",
+    );
+    if (result.success) {
+      console.log("✅ تم إرسال إيميل العقد بنجاح");
+    } else {
+      console.error("⚠️ فشل إرسال إيميل العقد:", result.error);
+    }
+  } catch (error) {
+    console.error("⚠️ خطأ في إرسال إيميل العقد:", error);
+  }
+};
+
+// 2️⃣ إرسال إيميل عند سداد قسط
+const sendPaymentEmail = async (contract, payment) => {
+  try {
+    // ✅ التأكد من وجود تاريخ السداد
+    if (!payment.paid_date) {
+      payment.paid_date = new Date().toISOString().split("T")[0];
+    }
+
+    // ✅ التأكد من وجود طريقة الدفع
+    if (!payment.payment_method) {
+      payment.payment_method = "cash";
+    }
+
+    const { sendEmailNotification } = await import("~/lib/email");
+    const result = await sendEmailNotification(
+      { contract, payment },
+      "installment_payment",
+    );
+
+    if (result.success) {
+      console.log("✅ تم إرسال إيميل السداد بنجاح");
+    } else {
+      console.error("⚠️ فشل إرسال إيميل السداد:", result.error);
+    }
+  } catch (error) {
+    console.error("⚠️ خطأ في إرسال إيميل السداد:", error);
+  }
+};
 const loadContracts = async () => {
   try {
     const { data } = await supabase
@@ -1212,11 +1262,21 @@ const showPaymentModal = (payment) => {
     showToast("⚠️ ليس لديك صلاحية لتسديد الأقساط", "warning");
     return;
   }
-  selectedPayment.value = payment;
-  paymentData.value = { method: "cash", notes: "" };
+  selectedPayment.value = {
+    ...payment,
+    // ✅ التأكد من وجود البيانات المطلوبة
+    amount: payment.amount || 0,
+    installment_number: payment.installment_number || 1,
+    due_date: payment.due_date || new Date().toISOString().split("T")[0],
+  };
+  paymentData.value = {
+    method: "cash",
+    notes: "",
+  };
   showPaymentModalFlag.value = true;
 };
 
+// ==================== Payment ====================
 const processPayment = async () => {
   if (!userStore.canEdit) {
     showToast("⚠️ ليس لديك صلاحية لتسديد الأقساط", "warning");
@@ -1226,30 +1286,64 @@ const processPayment = async () => {
   paymentLoading.value = true;
 
   try {
+    // ✅ التأكد من وجود تاريخ السداد
+    const today = new Date();
+    const paidDate = today.toISOString().split("T")[0];
+
+    // ✅ تحديث القسط
     const { error: updateError } = await supabase
       .from("installment_payments")
       .update({
         paid_amount: selectedPayment.value.amount,
-        paid_date: new Date().toISOString().split("T")[0],
+        paid_date: paidDate,
         status: "paid",
         payment_method: paymentData.value.method,
-        notes: paymentData.value.notes,
+        notes: paymentData.value.notes || null,
       })
       .eq("id", selectedPayment.value.id);
 
     if (updateError) throw updateError;
 
+    // ✅ حساب المتبقي الجديد
     const newRemaining =
       selectedContract.value.remaining_amount - selectedPayment.value.amount;
     const newStatus = newRemaining <= 0 ? "completed" : "active";
 
-    await supabase
+    // ✅ تحديث العقد
+    const { error: contractError } = await supabase
       .from("installment_contracts")
-      .update({ remaining_amount: newRemaining, status: newStatus })
+      .update({
+        remaining_amount: Math.max(0, newRemaining),
+        status: newStatus,
+      })
       .eq("id", selectedContract.value.id);
+
+    if (contractError) throw contractError;
+
+    // ✅ جلب بيانات العقد المحدثة للإيميل
+    const { data: updatedContract, error: fetchError } = await supabase
+      .from("installment_contracts")
+      .select("*")
+      .eq("id", selectedContract.value.id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // ✅ تحديث القسط المحدد بالبيانات الجديدة للإيميل
+    const updatedPayment = {
+      ...selectedPayment.value,
+      paid_date: paidDate,
+      payment_method: paymentData.value.method,
+      notes: paymentData.value.notes || null,
+    };
 
     showToast("✅ تم تسجيل السداد بنجاح", "success");
     showPaymentModalFlag.value = false;
+
+    // ✅ إرسال إيميل السداد
+    await sendPaymentEmail(updatedContract, updatedPayment);
+
+    // ✅ إعادة تحميل البيانات
     await loadContractPayments();
     await loadContracts();
   } catch (error) {
