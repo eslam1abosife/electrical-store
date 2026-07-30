@@ -255,6 +255,7 @@
         </div>
       </div>
 
+      <!-- ✅ بطاقة الديون المستحقة (من الأقساط - العملاء) -->
       <div
         class="bg-gradient-to-r from-rose-500 to-pink-500 rounded-2xl shadow p-4 text-white"
       >
@@ -264,7 +265,7 @@
             <p class="text-3xl font-bold mt-1">
               {{ formatNumber(periodStats.debtsDue) }} ج
             </p>
-            <p class="text-xs opacity-80 mt-1">مستحق الدفع</p>
+            <p class="text-xs opacity-80 mt-1">مستحق الدفع من الأقساط</p>
           </div>
           <div
             class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl"
@@ -334,6 +335,7 @@
         </div>
       </div>
 
+      <!-- ✅ بطاقة إجمالي ديون المشروع (من project_debts) -->
       <div
         class="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl shadow p-5 text-white"
       >
@@ -488,10 +490,10 @@
             <div class="flex justify-between items-start gap-2 mb-2">
               <div class="min-w-0 flex-1">
                 <p class="font-medium text-sm sm:text-base truncate">
-                  {{ debt.creditor_name }}
+                  {{ debt.creditor_name || debt.customer_name }}
                 </p>
                 <p class="text-xs text-gray-500">
-                  {{ getDebtTypeName(debt.debt_type) }}
+                  {{ debt.debt_type ? getDebtTypeName(debt.debt_type) : 'قسط مستحق' }}
                 </p>
               </div>
               <span
@@ -507,7 +509,7 @@
               >
               <button
                 v-if="userStore?.canEdit"
-                @click="navigateTo('/dashboard/project-debts')"
+                @click="navigateTo(debt.debt_type ? '/dashboard/project-debts' : '/dashboard/installments')"
                 class="text-blue-600 text-sm hover:underline whitespace-nowrap shrink-0"
               >
                 تسديد
@@ -777,7 +779,7 @@ const periodStats = ref({
   customersCount: 0,
   totalItemsSold: 0,
   averageOrderValue: 0,
-  debtsDue: 0,
+  debtsDue: 0, // ✅ من الأقساط (العملاء)
 });
 
 const dateRanges = [
@@ -805,7 +807,7 @@ const newExpense = ref({
 // إجمالي قيمة المخزون
 const totalStockPurchaseValue = ref(0);
 const totalStockSaleValue = ref(0);
-const totalStockProfit = ref(0); // ✅ مكسب البضاعة
+const totalStockProfit = ref(0);
 
 const stats = ref({
   totalSales: 0,
@@ -820,12 +822,14 @@ const stats = ref({
   offlineCount: 0,
 });
 
+// ✅ ديون المشروع (من project_debts)
 const projectDebts = ref({ total: 0, late: 0, count: 0 });
+
 const brideChecklistSales = ref({ total: 0, count: 0 });
 const dailySales = ref([]);
 const topProducts = ref([]);
 const recentOrders = ref([]);
-const upcomingDebts = ref([]);
+const upcomingDebts = ref([]); // ✅ تشمل ديون المشروع + الأقساط
 
 // Computed
 const cashBalance = computed(
@@ -1059,32 +1063,108 @@ const loadInventoryValue = async () => {
   }
 };
 
+// ✅ جلب ديون المشروع (من project_debts)
 const loadProjectDebts = async () => {
-  const { data: debts } = await supabase
-    .from("project_debts")
-    .select("*")
-    .eq("status", "active");
-  if (!debts) return;
-  let totalRemaining = 0,
-    lateAmount = 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const upcoming = [];
-  debts.forEach((debt) => {
-    totalRemaining += debt.remaining_amount || 0;
-    const dueDate = new Date(debt.due_date);
-    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-    if (dueDate < today) lateAmount += debt.remaining_amount;
-    if (diffDays <= 7 && diffDays >= 0 && debt.remaining_amount > 0)
-      upcoming.push(debt);
-  });
-  upcoming.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
-  upcomingDebts.value = upcoming.slice(0, 5);
-  projectDebts.value = {
-    total: totalRemaining,
-    late: lateAmount,
-    count: debts.length,
-  };
+  try {
+    const { data: debts, error } = await supabase
+      .from("project_debts")
+      .select("*")
+      .eq("status", "active");
+
+    if (error) throw error;
+
+    let totalRemaining = 0;
+    let lateAmount = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (debts) {
+      debts.forEach((debt) => {
+        totalRemaining += debt.remaining_amount || 0;
+        const dueDate = new Date(debt.due_date);
+        if (dueDate < today) {
+          lateAmount += debt.remaining_amount || 0;
+        }
+      });
+    }
+
+    projectDebts.value = {
+      total: totalRemaining,
+      late: lateAmount,
+      count: debts?.length || 0,
+    };
+
+    // إضافة ديون المشروع إلى قائمة الديون المستحقة قريباً
+    await loadUpcomingDebts();
+  } catch (error) {
+    console.error("Error loading project debts:", error);
+  }
+};
+
+// ✅ جلب الديون المستحقة قريباً (من project_debts + installment_payments)
+const loadUpcomingDebts = async () => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const futureDate = new Date(today);
+    futureDate.setDate(futureDate.getDate() + 7);
+
+    const upcoming = [];
+
+    // 1. جلب ديون المشروع المستحقة قريباً
+    const { data: projectDebtsData } = await supabase
+      .from("project_debts")
+      .select("*")
+      .eq("status", "active")
+      .gte("due_date", today.toISOString().split('T')[0])
+      .lte("due_date", futureDate.toISOString().split('T')[0])
+      .order("due_date", { ascending: true });
+
+    if (projectDebtsData) {
+      projectDebtsData.forEach((debt) => {
+        upcoming.push({
+          id: debt.id,
+          creditor_name: debt.creditor_name,
+          remaining_amount: debt.remaining_amount,
+          due_date: debt.due_date,
+          debt_type: debt.debt_type,
+        });
+      });
+    }
+
+    // 2. جلب أقساط العملاء المستحقة قريباً
+    const { data: installmentPayments } = await supabase
+      .from("installment_payments")
+      .select(`
+        *,
+        installment_contracts (
+          customer_name,
+          remaining_amount
+        )
+      `)
+      .eq("status", "unpaid")
+      .gte("due_date", today.toISOString().split('T')[0])
+      .lte("due_date", futureDate.toISOString().split('T')[0])
+      .order("due_date", { ascending: true });
+
+    if (installmentPayments) {
+      installmentPayments.forEach((payment) => {
+        upcoming.push({
+          id: payment.contract_id,
+          creditor_name: payment.installment_contracts?.customer_name || "عميل",
+          remaining_amount: payment.amount,
+          due_date: payment.due_date,
+          debt_type: null, // ليس من ديون المشروع
+        });
+      });
+    }
+
+    // ترتيب حسب تاريخ الاستحقاق
+    upcoming.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+    upcomingDebts.value = upcoming.slice(0, 5);
+  } catch (error) {
+    console.error("Error loading upcoming debts:", error);
+  }
 };
 
 // دوال الرسم البياني والفترات
@@ -1169,7 +1249,7 @@ const loadPeriodDetails = async () => {
     .gte("purchase_date", startDate.toISOString())
     .lte("purchase_date", endDate.toISOString());
 
-  // ✅ حساب إجمالي المشتريات من total_price (أعداد صحيحة)
+  // حساب إجمالي المشتريات من total_price (أعداد صحيحة)
   const totalPurchases = Math.round(
     purchases?.reduce((sum, p) => {
       return sum + (Number(p.total_price) || 0);
@@ -1185,11 +1265,6 @@ const loadPeriodDetails = async () => {
     .select("*")
     .gte("expense_date", startDate.toISOString().split("T")[0])
     .lte("expense_date", endDate.toISOString().split("T")[0]);
-
-  const { data: debts } = await supabase
-    .from("project_debts")
-    .select("*")
-    .eq("status", "active");
 
   // ✅ 6. حساب المبيعات حسب النوع (أعداد صحيحة)
   const onlineOrders = orders?.filter((o) => o.sale_type === "online") || [];
@@ -1266,9 +1341,21 @@ const loadPeriodDetails = async () => {
 
   const avgOrder =
     orders?.length > 0 ? Math.round(totalSales / orders.length) : 0;
-  const debtsDue = Math.round(
-    debts?.reduce((sum, d) => sum + (d.remaining_amount || 0), 0) || 0,
-  );
+
+  // ✅ 10. جلب الديون المستحقة من installment_contracts (العملاء)
+  const { data: activeContracts } = await supabase
+    .from("installment_contracts")
+    .select("remaining_amount, status")
+    .eq("status", "active");
+
+  let debtsDueFromContracts = 0;
+  if (activeContracts && activeContracts.length > 0) {
+    debtsDueFromContracts = Math.round(
+      activeContracts.reduce((sum, contract) => {
+        return sum + (Number(contract.remaining_amount) || 0);
+      }, 0)
+    );
+  }
 
   periodStats.value = {
     totalSales,
@@ -1298,7 +1385,7 @@ const loadPeriodDetails = async () => {
     customersCount: uniqueCustomers.size,
     totalItemsSold,
     averageOrderValue: avgOrder,
-    debtsDue,
+    debtsDue: debtsDueFromContracts, // ✅ دي بتاعة الأقساط (الزباين)
   };
 };
 
@@ -1331,7 +1418,7 @@ const loadDashboardData = async () => {
   // ترتيب حسب التاريخ
   allOrders.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
 
-  // ✅ 4. باقي الكود بنفس الشكل بس باستخدام allOrders بدل orders
+  // ✅ 4. باقي الكود بنفس الشكل بس باستخدام allOrders بدلاً من orders
   let orders = allOrders || [];
   if (filterSaleType.value === "normal")
     orders = orders.filter((o) => !o.notes || !o.notes.includes("كشف عروسة"));
@@ -1470,6 +1557,7 @@ const loadDashboardData = async () => {
 
   recentOrders.value = orders.slice(0, 10);
 
+  // ✅ 9. جلب ديون المشروع والعملاء
   await loadProjectDebts();
   await loadInventoryValue();
   await nextTick();

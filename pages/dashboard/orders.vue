@@ -1,12 +1,17 @@
 <template>
   <div class="p-3 sm:p-4 md:p-6 bg-gray-50 min-h-screen" dir="rtl">
     <div class="mb-4 sm:mb-6">
-      <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
-        📋 إدارة الطلبات
-      </h1>
-      <p class="text-sm sm:text-base text-gray-500">
-        متابعة طلبات العملاء (من الموقع ومن المعرض)
-      </p>
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">
+            📋 إدارة الطلبات
+          </h1>
+          <p class="text-sm sm:text-base text-gray-500">
+            متابعة طلبات العملاء (من الموقع ومن المعرض)
+          </p>
+        </div>
+        <!-- ❌ تم إزالة زر إضافة طلب جديد -->
+      </div>
     </div>
 
     <!-- فلتر الحالة -->
@@ -140,7 +145,6 @@
                     class="border-b last:border-0 py-1 flex justify-between items-center"
                   >
                     <span>{{ item.name }} (x{{ item.quantity }})</span>
-                    <!-- ✅ حالة التوفر لكل منتج في الموبايل -->
                     <span v-if="item.product_id" class="text-xs">
                       <span
                         v-if="getProductStock(item.product_id) === null"
@@ -236,7 +240,6 @@
                   </div>
                 </div>
               </td>
-              <!-- ✅ عمود التوفر -->
               <td class="p-3">
                 <div class="flex flex-col gap-1 text-xs">
                   <div
@@ -366,6 +369,8 @@
         </p>
       </div>
     </div>
+
+    <!-- ❌ تم إزالة مودال إضافة طلب جديد -->
 
     <!-- Modal عرض الفاتورة -->
     <div
@@ -506,14 +511,23 @@
 definePageMeta({ layout: "dashboard" });
 
 import { supabase } from '~/lib/supabase';
+// ❌ تم إزالة استيراد sendNewOrderNotification عشان الإشعارات هتتبعت من الـ API
+
 const userStore = useUserStore();
+
+// ============================================
+// STATE
+// ============================================
 const orders = ref([]);
-const products = ref([]); // ✅ لإضافة المنتجات وحالة التوفر
+const products = ref([]);
 const filterStatus = ref("all");
 const filterSaleType = ref("all");
 const showInvoiceModal = ref(false);
 const currentInvoice = ref(null);
 
+// ============================================
+// STATUSES & TYPES
+// ============================================
 const statuses = [
   { name: "الكل", value: "all", color: "text-gray-600" },
   { name: "⏳ قيد الانتظار", value: "pending", color: "text-yellow-600" },
@@ -529,6 +543,26 @@ const saleTypes = [
   { name: "🏪 من المعرض", value: "offline" },
 ];
 
+// ============================================
+// COMPUTED
+// ============================================
+const filteredOrders = computed(() => {
+  let result = orders.value;
+
+  if (filterStatus.value !== "all") {
+    result = result.filter((o) => o.status === filterStatus.value);
+  }
+
+  if (filterSaleType.value !== "all") {
+    result = result.filter((o) => o.sale_type === filterSaleType.value);
+  }
+
+  return result;
+});
+
+// ============================================
+// METHODS - UI HELPERS
+// ============================================
 const getStatusClass = (status) => {
   const classes = {
     pending: "bg-yellow-100 text-yellow-700",
@@ -565,7 +599,6 @@ const formatDateTime = (date) => {
   return new Date(date).toLocaleString("ar-EG");
 };
 
-// ✅ دالة لجلب items من الطلب
 const getOrderItems = (order) => {
   if (!order) return [];
   if (Array.isArray(order.items)) return order.items;
@@ -573,27 +606,23 @@ const getOrderItems = (order) => {
     try {
       return JSON.parse(order.items);
     } catch (e) {
-      console.error("❌ خطأ في تحويل items:", e);
       return [];
     }
   }
   return [];
 };
 
-// ✅ دالة جلب المخزون الحالي لمنتج (مع التعامل مع الأخطاء)
 const getProductStock = (productId) => {
   if (!productId) return null;
-
-  // البحث عن المنتج في قائمة المنتجات المحملة
   const product = products.value.find((p) => p.id === productId);
-
-  // ✅ لو المنتج مش موجود، نرجع null عشان نعرض "منتج محذوف"
   if (!product) return null;
-
   return product.stock;
 };
 
-// ✅ تحميل المنتجات (لحالة التوفر)
+// ============================================
+// METHODS - LOAD DATA (مع منع التكرار)
+// ============================================
+
 const loadProducts = async () => {
   try {
     const { data, error } = await supabase
@@ -612,10 +641,9 @@ const loadProducts = async () => {
   }
 };
 
-// ✅ تحميل الطلبات من الجدولين
 const loadOrders = async () => {
   try {
-    // ✅ 1. جلب الطلبات من orders (طلبات المعرض)
+    // جلب طلبات المعرض
     const { data: ordersData, error: ordersError } = await supabase
       .from("orders")
       .select("*")
@@ -625,7 +653,7 @@ const loadOrders = async () => {
       console.error("❌ خطأ في جلب طلبات المعرض:", ordersError);
     }
 
-    // ✅ 2. جلب الطلبات من customer_orders (طلبات الموقع)
+    // جلب طلبات الموقع
     const { data: customerOrdersData, error: customerOrdersError } =
       await supabase
         .from("customer_orders")
@@ -636,20 +664,29 @@ const loadOrders = async () => {
       console.error("❌ خطأ في جلب طلبات الموقع:", customerOrdersError);
     }
 
-    // ✅ 3. دمج الطلبات
-    const allOrders = [];
+    // ✅ دمج الطلبات مع منع التكرار باستخدام Set
+    const orderMap = new Map();
 
     // إضافة طلبات المعرض
     if (ordersData) {
-      allOrders.push(...ordersData);
+      ordersData.forEach(order => {
+        if (!orderMap.has(order.id)) {
+          orderMap.set(order.id, order);
+        }
+      });
     }
 
-    // إضافة طلبات الموقع
+    // إضافة طلبات الموقع (لو في تكرار، هنفضل الأولى)
     if (customerOrdersData) {
-      allOrders.push(...customerOrdersData);
+      customerOrdersData.forEach(order => {
+        if (!orderMap.has(order.id)) {
+          orderMap.set(order.id, order);
+        }
+      });
     }
 
-    // ✅ 4. ترتيب الطلبات حسب التاريخ (الأحدث أولاً)
+    // تحويل الـ Map إلى Array وترتيبها
+    const allOrders = Array.from(orderMap.values());
     allOrders.sort((a, b) => {
       return new Date(b.order_date) - new Date(a.order_date);
     });
@@ -660,30 +697,17 @@ const loadOrders = async () => {
     }));
 
     console.log(
-      `📦 تم تحميل ${orders.value.length} طلب (${ordersData?.length || 0} من المعرض + ${customerOrdersData?.length || 0} من الموقع)`,
+      `📦 تم تحميل ${orders.value.length} طلب (${ordersData?.length || 0} من المعرض + ${customerOrdersData?.length || 0} من الموقع، بدون تكرار)`
     );
   } catch (error) {
     console.error("❌ خطأ:", error);
-    alert("❌ حدث خطأ: " + error.message);
   }
 };
 
-// ✅ تأكد من الفلتر
-const filteredOrders = computed(() => {
-  let result = orders.value;
+// ============================================
+// METHODS - UPDATE & DELETE
+// ============================================
 
-  if (filterStatus.value !== "all") {
-    result = result.filter((o) => o.status === filterStatus.value);
-  }
-
-  if (filterSaleType.value !== "all") {
-    result = result.filter((o) => o.sale_type === filterSaleType.value);
-  }
-
-  return result;
-});
-
-// ✅ دالة لإعادة المنتجات للمخزون
 const restoreProductsToStock = async (order) => {
   const items = getOrderItems(order);
 
@@ -707,7 +731,6 @@ const restoreProductsToStock = async (order) => {
         continue;
       }
 
-      // ✅ استخدم maybeSingle بدلاً من single
       const { data: product, error: fetchError } = await supabase
         .from("products")
         .select("stock, name")
@@ -721,7 +744,7 @@ const restoreProductsToStock = async (order) => {
       }
 
       if (!product) {
-        console.warn(`⚠️ المنتج ${productId} غير موجود في قاعدة البيانات (تم حذفه سابقاً)`);
+        console.warn(`⚠️ المنتج ${productId} غير موجود في قاعدة البيانات`);
         deletedCount++;
         continue;
       }
@@ -754,7 +777,6 @@ const restoreProductsToStock = async (order) => {
   return { successCount, errorCount, deletedCount };
 };
 
-// ✅ تحديث حالة الطلب (مع دعم الجدولين)
 const updateStatus = async (orderId, newStatus) => {
   if (!userStore?.canEdit) {
     alert("⚠️ ليس لديك صلاحية لتغيير حالة الطلب");
@@ -762,16 +784,14 @@ const updateStatus = async (orderId, newStatus) => {
   }
 
   try {
-    // ✅ 1. البحث عن الطلب في orders
     let { data: order, error: fetchError } = await supabase
       .from("orders")
       .select("*")
       .eq("id", orderId)
-      .maybeSingle(); // ✅ استخدم maybeSingle بدلاً من single
+      .maybeSingle();
 
     let tableName = "orders";
 
-    // ✅ 2. لو مش موجود في orders، جرب customer_orders
     if (!order) {
       const { data: customerOrder, error: customerError } = await supabase
         .from("customer_orders")
@@ -801,7 +821,6 @@ const updateStatus = async (orderId, newStatus) => {
     const oldStatus = order.status;
     const items = getOrderItems(order);
 
-    // ✅ تحديد إذا كان يجب إعادة المخزون
     const shouldRestoreStock =
       newStatus === "cancelled" &&
       ["pending", "processing", "shipped", "delivered"].includes(oldStatus);
@@ -813,7 +832,6 @@ const updateStatus = async (orderId, newStatus) => {
       await restoreProductsToStock(order);
     }
 
-    // ✅ تحديث الحالة في الجدول المناسب
     const { error: updateError } = await supabase
       .from(tableName)
       .update({
@@ -845,7 +863,6 @@ const updateStatus = async (orderId, newStatus) => {
   }
 };
 
-// ✅ حذف الطلب (مع دعم الجدولين)
 const deleteOrder = async (orderId) => {
   if (!userStore?.canEdit) {
     alert("⚠️ ليس لديك صلاحية لحذف الطلبات");
@@ -861,7 +878,6 @@ const deleteOrder = async (orderId) => {
   }
 
   try {
-    // ✅ 1. البحث عن الطلب في orders
     let { data: order, error: fetchError } = await supabase
       .from("orders")
       .select("*")
@@ -870,7 +886,6 @@ const deleteOrder = async (orderId) => {
 
     let tableName = "orders";
 
-    // ✅ 2. لو مش موجود في orders، جرب customer_orders
     if (!order) {
       const { data: customerOrder, error: customerError } = await supabase
         .from("customer_orders")
@@ -904,7 +919,6 @@ const deleteOrder = async (orderId) => {
       await restoreProductsToStock(order);
     }
 
-    // ✅ حذف الطلب من الجدول المناسب
     const { error: deleteError } = await supabase
       .from(tableName)
       .delete()
@@ -923,7 +937,10 @@ const deleteOrder = async (orderId) => {
   }
 };
 
-// ✅ دالة طباعة الفاتورة
+// ============================================
+// METHODS - INVOICE PRINTING
+// ============================================
+
 const printInvoice = (order) => {
   currentInvoice.value = order;
   showInvoiceModal.value = true;
@@ -956,6 +973,10 @@ const printCurrentInvoice = () => {
   printWindow.document.close();
   printWindow.print();
 };
+
+// ============================================
+// LIFECYCLE
+// ============================================
 
 onMounted(async () => {
   await loadProducts();

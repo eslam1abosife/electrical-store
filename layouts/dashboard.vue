@@ -193,6 +193,15 @@
               <span class="text-xl sm:text-2xl">👰</span>
               <span>كشوفات العرائس</span>
             </NuxtLink>
+               <NuxtLink
+              to="/dashboard/Notification"
+              @click="sidebarOpen = false"
+              class="flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base"
+              active-class="bg-pink-50 text-pink-600"
+            >
+              <span class="text-xl sm:text-2xl">🔔</span>
+              <span>الاشعارات</span>
+            </NuxtLink>
           </div>
         </nav>
 
