@@ -69,10 +69,11 @@
         <h3 class="font-bold text-sm sm:text-base md:text-lg">
           {{ cat.name }}
         </h3>
+        <span class="text-xs opacity-75">{{ getCategoryCount(cat.value) }} منتج</span>
       </div>
     </div>
 
-    <!-- ================= SUB CATEGORIES (CHIPS) ================= -->
+    <!-- ================= SUB CATEGORIES (CHIPS) - جميع الأصناف ================= -->
     <div class="flex gap-2 flex-wrap mb-6">
       <button
         v-for="sub in subCategories[activeCategory]"
@@ -85,7 +86,7 @@
             : 'bg-white border hover:bg-gray-100'
         "
       >
-        {{ sub.name }}
+        {{ sub.icon }} {{ sub.name }}
       </button>
     </div>
 
@@ -252,9 +253,8 @@
               <th class="p-4 text-right text-sm">المخزون</th>
               <th class="p-4 text-right text-sm hidden lg:table-cell">الربح</th>
               <th class="p-4 text-right text-sm hidden sm:table-cell">النوع</th>
-              <th class="p-4 text-right text-sm hidden sm:table-cell">
-                الحالة
-              </th>
+              <th class="p-4 text-right text-sm hidden sm:table-cell">الفرعي</th>
+              <th class="p-4 text-right text-sm hidden sm:table-cell">الحالة</th>
               <th class="p-4 text-right text-sm">إجراءات</th>
             </tr>
           </thead>
@@ -354,6 +354,13 @@
               </td>
               <td class="p-4 hidden sm:table-cell">
                 <span
+                  class="px-2 py-1 rounded-full text-xs whitespace-nowrap bg-gray-100 text-gray-700"
+                >
+                  {{ getSubCategoryName(product.sub_category) || 'غير محدد' }}
+                </span>
+              </td>
+              <td class="p-4 hidden sm:table-cell">
+                <span
                   class="px-2 py-1 rounded-full text-xs whitespace-nowrap"
                   :class="
                     product.stock === 0
@@ -401,7 +408,7 @@
             </tr>
 
             <tr v-if="filteredProducts.length === 0">
-              <td colspan="9" class="text-center p-10 text-gray-400">
+              <td colspan="10" class="text-center p-10 text-gray-400">
                 لا يوجد منتجات في هذا القسم
               </td>
             </tr>
@@ -522,19 +529,19 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium mb-1">النوع</label>
+            <label class="block text-sm font-medium mb-1">النوع الفرعي</label>
             <select
               v-model="formData.sub_category"
               class="w-full p-2.5 sm:p-3 border rounded-xl text-sm"
               :disabled="!formData.category"
             >
-              <option value="">اختر النوع</option>
+              <option value="">اختر النوع الفرعي</option>
               <option
                 v-for="sub in subCategories[formData.category]"
                 :key="sub.value"
                 :value="sub.value"
               >
-                {{ sub.name }}
+                {{ sub.icon }} {{ sub.name }}
               </option>
             </select>
           </div>
@@ -704,42 +711,118 @@ const mainCategories = [
   { name: "البلاستيك والتخزين", value: "plastic" },
 ];
 
+// ============================================================
+// ✅ جميع الأصناف الفرعية - محدثة بالكامل
+// ============================================================
 const subCategories = {
+  // ============ الأجهزة الكهربائية ============
   electrical: [
-    { name: "الكل", value: "all" },
-    { name: "ثلاجات", value: "refrigerators" },
-    { name: "ديب فريزر", value: "freezers" },
-    { name: "تكييفات", value: "air_conditioners" },
-    { name: "مبردات مياه", value: "water_coolers" },
-    { name: "مراوح", value: "fans" },
-    { name: "غسالات", value: "washing_machines" },
-    { name: "مجففات", value: "dryers" },
-    { name: "مكانس كهربائية", value: "vacuum_cleaners" },
-    { name: "بوتاجازات", value: "cookers" },
-    { name: "أفران كهرباء", value: "ovens" },
-    { name: "ميكروويف", value: "microwaves" },
-    { name: "خلاطات", value: "blenders" },
-    { name: "ماكينات قهوة", value: "coffee_makers" },
-    { name: "كاتيل كهرباء", value: "kettles" },
-    { name: "سشوار", value: "hair_dryers" },
+    { name: "الكل", value: "all", icon: "📋" },
+    { name: "ثلاجة", value: "refrigerator", icon: "🧊" },
+    { name: "ديب فريزر (رأسي / أفقي)", value: "freezer", icon: "❄️" },
+    { name: "غسالة ملابس (أوتوماتيك / فوق أوتوماتيك / عادية)", value: "washing_machine", icon: "🧺" },
+    { name: "مجفف ملابس (دراير)", value: "dryer", icon: "👕" },
+    { name: "غسالة أطباق", value: "dishwasher", icon: "🍽️" },
+    { name: "بوتاجاز (مستقل / بلت إن)", value: "cooker", icon: "🔥" },
+    { name: "فرن كهربائي / فرن بلت إن", value: "oven", icon: "🔥" },
+    { name: "شفاط مطبخ", value: "hood", icon: "💨" },
+    { name: "ميكروويف", value: "microwave", icon: "📡" },
+    { name: "مبرد مياه (كولر)", value: "water_cooler", icon: "💧" },
+    { name: "تكييف", value: "air_conditioner", icon: "❄️" },
+    { name: "مروحة (سقف / عمود / حائط)", value: "fan", icon: "🌀" },
+    { name: "دفاية", value: "heater", icon: "🔥" },
+    { name: "شاشة تلفزيون", value: "tv", icon: "📺" },
+    { name: "مكواة (بخار / عادية / عمودية)", value: "iron", icon: "👔" },
+    { name: "مكنسة كهربائية", value: "vacuum_cleaner", icon: "🧹" },
+    { name: "خلاط", value: "blender", icon: "🥤" },
+    { name: "كبة طعام", value: "food_grinder", icon: "🍖" },
+    { name: "مضرب بيض / عجان", value: "mixer", icon: "🥚" },
+    { name: "هاند بلندر", value: "hand_blender", icon: "🥤" },
+    { name: "محضر طعام (فود بروسيسور)", value: "food_processor", icon: "🍳" },
+    { name: "قلاية بدون زيت (أير فراير)", value: "air_fryer", icon: "🍟" },
+    { name: "غلاية مياه (كاتل)", value: "kettle", icon: "☕" },
+    { name: "صانع ساندوتشات / توستر", value: "sandwich_maker", icon: "🥪" },
+    { name: "مفرمة لحوم", value: "meat_grinder", icon: "🥩" },
   ],
+  
+  // ============ الأدوات المنزلية ============
   home: [
-    { name: "الكل", value: "all" },
-    { name: "أطقم سفرة", value: "dinner_sets" },
-    { name: "كاسات", value: "cups" },
-    { name: "علب حفظ طعام", value: "food_storage" },
-    { name: "حلل وطاسات", value: "pots_pans" },
-    { name: "أدوات تنظيف", value: "cleaning_tools" },
-    { name: "مفارش", value: "table_cloths" },
+    { name: "الكل", value: "all", icon: "📋" },
+    { name: "طقم صيني", value: "china_set", icon: "🍽️" },
+    { name: "طقم أركوبال / أركوبيركس", value: "arcopal_set", icon: "🍽️" },
+    { name: "طقم ملامين", value: "melamine_set", icon: "🍽️" },
+    { name: "طقم أرشوفال", value: "archovale_set", icon: "🍽️" },
+    { name: "طقم عشاء بايركس", value: "pyrex_set", icon: "🍽️" },
+    { name: "طقم حلل (جرانيت / إستانلس / تيفال / ألومنيوم / سيراميك)", value: "pot_set", icon: "🍳" },
+    { name: "طقم طاسات / مقالي", value: "pan_set", icon: "🍳" },
+    { name: "طقم صواني فرن", value: "oven_trays", icon: "🧊" },
+    { name: "حلة ضغط", value: "pressure_cooker", icon: "🍲" },
+    { name: "طواجن (فخار / بايركس)", value: "casserole", icon: "🍲" },
+    { name: "طقم معالق وشوك وسكاكين (شنطة معالق)", value: "cutlery_set", icon: "🍴" },
+    { name: "طقم توزيع (سيليكون / إستانلس / خشب)", value: "serving_set", icon: "🥄" },
+    { name: "طقم كاسات", value: "glass_set", icon: "🥤" },
+    { name: "طقم كوبايات (مياه / عصير / شاي)", value: "cup_set", icon: "☕" },
+    { name: "طقم شاي وقهوة", value: "tea_coffee_set", icon: "☕" },
+    { name: "ترمس مياه وشاي", value: "thermos", icon: "🧴" },
+    { name: "صواني تقديم", value: "serving_trays", icon: "🧊" },
+    { name: "طقم توابل", value: "spice_set", icon: "🧂" },
+    { name: "صفاية أطباق", value: "dish_drainer", icon: "🧺" },
   ],
+  
+  // ============ البلاستيكيات والمنظمات ============
   plastic: [
-    { name: "الكل", value: "all" },
-    { name: "علب حفظ طعام", value: "food_containers" },
-    { name: "كراسي", value: "chairs" },
-    { name: "ترابيزات", value: "tables" },
-    { name: "سلات قمامة", value: "trash_bins" },
-    { name: "جراكن مياه", value: "water_jerrycans" },
+    { name: "الكل", value: "all", icon: "📋" },
+    { name: "ترابيزة بلاستيك", value: "plastic_table", icon: "🪑" },
+    { name: "كرسي بلاستيك", value: "plastic_chair", icon: "🪑" },
+    { name: "دولاب بلاستيك (جزامة / منظم)", value: "plastic_cabinet", icon: "🗄️" },
+    { name: "تربو مطبخ / حمام (أدراج بلاستيك)", value: "plastic_drawers", icon: "🗄️" },
+    { name: "سبت غسيل (مغلق / مخرم)", value: "laundry_basket", icon: "🧺" },
+    { name: "طبق غسيل (بانيو غسيل)", value: "wash_basin", icon: "🛁" },
+    { name: "جردل غسيل", value: "washing_bucket", icon: "🪣" },
+    { name: "جردل بممسحة (جردل الهلال/الموب)", value: "mop_bucket", icon: "🧹" },
+    { name: "سلة مهملات (باكت قمامة بأحجامها)", value: "trash_bin", icon: "🗑️" },
+    { name: "علب حفظ طعام (أطقم علب ثلاجة)", value: "food_container", icon: "📦" },
+    { name: "شفشق بلاستيك", value: "plastic_bottle", icon: "🧴" },
+    { name: "زجاجة مياه بلاستيك", value: "water_bottle", icon: "💧" },
+    { name: "لانش بوكس", value: "lunch_box", icon: "🥪" },
+    { name: "سبت خضار", value: "vegetable_basket", icon: "🥬" },
+    { name: "بلانشة تقطيع", value: "cutting_board", icon: "🔪" },
+    { name: "صفاية معالق", value: "spoon_drainer", icon: "🍴" },
+    { name: "جاروف ومقشة", value: "broom_dustpan", icon: "🧹" },
+    { name: "بانيو أطفال بلاستيك", value: "baby_bath", icon: "🛁" },
+    { name: "بوله بلاستيك", value: "baby_bath2", icon: "🍳" },
+    { name: "كرسي أطفال بلاستيك", value: "baby_chair", icon: "🪑" },
+    { name: "مقعد أطفال بلاستيك", value: "baby_seat", icon: "🪑" },
+    { name: "سلة ألعاب أطفال", value: "baby_toy_basket", icon: "🧸" },
+    { name:"مج بلاستيك للأطفال", value: "baby_cup", icon: "🥤" },
+    { name:"مغرفة بلاستيك", value: "plastic_ladle", icon: "🥄" },
+    { name:"مصفاة بلاستيك", value: "plastic_strainer", icon: "🧊" },
+    { name:"حوض بلاستيك", value: "plastic_basin", icon: "🛁" },
+    { name:"سلة غسيل بلاستيك", value: "plastic_laundry_basket", icon: "🧺" },
+    { name:"علبة أدوات بلاستيك", value: "plastic_tool_box", icon: "🧰" },
+    { name:"بستله بلاستيك", value: "plastic_storage_box", icon: "📦" },
+    {name: "اطباق بلاستيك", value: "plastic_plate", icon: "🍽️" },
   ],
+};
+
+// ✅ دالة جلب اسم الصنف الفرعي
+const getSubCategoryName = (value) => {
+  if (!value) return "غير محدد";
+  // البحث في جميع الأقسام
+  for (const category of Object.values(subCategories)) {
+    const found = category.find(sub => sub.value === value);
+    if (found) return found.name;
+  }
+  return value.replace(/_/g, " ");
+};
+
+// ✅ حساب عدد المنتجات في كل قسم
+const getCategoryCount = (category) => {
+  return products.value.filter(p => 
+    p.category === category && 
+    p.stock > 0 && 
+    p.product_type !== 'pre_order'
+  ).length;
 };
 
 // ✅ formData مع product_type
@@ -808,10 +891,9 @@ const loadProducts = async () => {
   }
 };
 
-// ✅ Filter products - عرض المنتجات المتوفرة فقط للإدارة
+// ✅ Filter products
 const filteredProducts = computed(() => {
   let result = products.value.filter((p) => {
-    // ✅ عرض المنتجات المتوفرة فقط (stock > 0 و product_type = 'in_stock')
     if (p.product_type === "pre_order") return false;
     if (p.stock === 0) return false;
     if (p.category !== activeCategory.value) return false;
@@ -898,8 +980,7 @@ const removeImage = (index) => {
   formData.value.images.splice(index, 1);
 };
 
-// ✅ Save product - مع product_type
-// ✅ Save product - مع product_type
+// ✅ Save product
 const saveProduct = async () => {
   if (!userStore.canEdit) {
     showToast("⚠️ ليس لديك صلاحية لإضافة أو تعديل المنتجات", "warning");
@@ -934,53 +1015,42 @@ const saveProduct = async () => {
   let error;
 
   if (editingProduct.value) {
-    // ✅ حفظ المنتج القديم قبل التعديل
     const oldProduct = products.value.find(p => p.id === editingProduct.value.id);
     
-    // ✅ تحديث المنتج
     const { error: updateError } = await supabase
       .from("products")
       .update(productData)
       .eq("id", editingProduct.value.id);
     error = updateError;
 
-    // ✅ لو تغيرت البيانات، حدّث المشتريات
     if (!error && oldProduct) {
       const priceChanged = oldProduct.purchase_price !== formData.value.purchase_price;
       const nameChanged = oldProduct.name !== formData.value.name;
       const stockChanged = oldProduct.stock !== formData.value.stock;
 
       if (priceChanged || nameChanged || stockChanged) {
-        // ✅ جلب المشتريات المرتبطة بهذا المنتج
         const { data: purchasesData, error: fetchError } = await supabase
           .from("purchases")
           .select("*")
           .eq("product_id", editingProduct.value.id);
 
         if (!fetchError && purchasesData && purchasesData.length > 0) {
-          // ✅ تحديث كل فواتير هذا المنتج
           for (const purchase of purchasesData) {
             const updateData = {};
             
-            // ✅ تحديث سعر الشراء لو تغير
             if (priceChanged) {
               updateData.unit_price = formData.value.purchase_price || purchase.unit_price;
               updateData.total_price = updateData.unit_price * purchase.quantity;
             }
             
-            // ✅ تحديث اسم المنتج لو تغير
             if (nameChanged) {
               updateData.product_name = formData.value.name;
             }
 
-            // ✅ تحديث الكمية لو تغيرت
             if (stockChanged) {
-              // ✅ الفرق بين الكمية القديمة والجديدة
               const quantityDiff = formData.value.stock - oldProduct.stock;
-              // ✅ الكمية الجديدة في الفاتورة = الكمية القديمة + الفرق
               const newQuantity = Math.max(0, purchase.quantity + quantityDiff);
               updateData.quantity = newQuantity;
-              // ✅ تحديث الإجمالي مع السعر الجديد
               updateData.total_price = (updateData.unit_price || purchase.unit_price) * newQuantity;
             }
 
@@ -1001,7 +1071,6 @@ const saveProduct = async () => {
       }
     }
   } else {
-    // ✅ إضافة منتج جديد
     const { error: insertError } = await supabase
       .from("products")
       .insert([{ ...productData, created_at: new Date().toISOString() }]);
@@ -1021,7 +1090,7 @@ const saveProduct = async () => {
   }
 };
 
-// Edit product - مع product_type
+// Edit product
 const editProduct = (product) => {
   if (!userStore.canEdit) {
     showToast("⚠️ ليس لديك صلاحية لتعديل المنتجات", "warning");
@@ -1045,7 +1114,7 @@ const editProduct = (product) => {
   uploadError.value = "";
 };
 
-// ✅ دالة نقل المنتج إلى غير متوفرة (بدلاً من حذفه)
+// ✅ دالة نقل المنتج إلى غير متوفرة
 const moveToOutOfStock = async (id) => {
   if (!userStore.canEdit) {
     showToast("⚠️ ليس لديك صلاحية", "warning");
@@ -1083,7 +1152,7 @@ const moveToOutOfStock = async (id) => {
   }
 };
 
-// ✅ حذف المنتج (حذف نهائي)
+// ✅ حذف المنتج
 const deleteProduct = async (id) => {
   if (!userStore.canEdit) {
     showToast("⚠️ ليس لديك صلاحية لحذف المنتجات", "warning");
@@ -1122,26 +1191,7 @@ const deleteProduct = async (id) => {
     showToast("✅ تم حذف المنتج نهائياً", "success");
   }
 };
-// في صفحة المنتجات (products/index.vue)
-watch(
-  () => formData.value.purchase_price,
-  async (newPrice, oldPrice) => {
-    if (editingProduct.value && newPrice !== oldPrice) {
-      // لو تغير سعر الشراء، حدّث المشتريات
-      const { error } = await supabase
-        .from("purchases")
-        .update({
-          unit_price: newPrice,
-          total_price: newPrice * editingProduct.value.stock,
-        })
-        .eq("product_id", editingProduct.value.id);
 
-      if (error) {
-        console.error("Error updating purchases:", error);
-      }
-    }
-  },
-);
 // Close modal
 const closeModal = () => {
   showAddModal.value = false;
