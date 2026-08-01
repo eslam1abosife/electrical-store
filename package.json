@@ -20,6 +20,8 @@
     "firebase": "^12.16.0",
     "firebase-admin": "^14.2.0",
     "html2pdf.js": "^0.14.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "nuxt": "^4.4.6",
     "openai": "^6.45.0",
     "pinia": "^3.0.4",

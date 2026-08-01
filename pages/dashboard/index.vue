@@ -235,7 +235,6 @@
         </div>
       </div>
 
-      <!-- ✅ Card مكسب البضاعة -->
       <div
         class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow p-4 text-white"
       >
@@ -255,7 +254,6 @@
         </div>
       </div>
 
-      <!-- ✅ بطاقة الديون المستحقة (من الأقساط - العملاء) -->
       <div
         class="bg-gradient-to-r from-rose-500 to-pink-500 rounded-2xl shadow p-4 text-white"
       >
@@ -335,7 +333,6 @@
         </div>
       </div>
 
-      <!-- ✅ بطاقة إجمالي ديون المشروع (من project_debts) -->
       <div
         class="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl shadow p-5 text-white"
       >
@@ -353,6 +350,14 @@
             💸
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- الرسم البياني -->
+    <div class="bg-white rounded-2xl shadow p-4 mb-8">
+      <h2 class="text-lg font-bold text-gray-700 mb-4">📊 مبيعات آخر 7 أيام</h2>
+      <div class="h-64 sm:h-80">
+        <canvas id="salesChart"></canvas>
       </div>
     </div>
 
@@ -779,7 +784,7 @@ const periodStats = ref({
   customersCount: 0,
   totalItemsSold: 0,
   averageOrderValue: 0,
-  debtsDue: 0, // ✅ من الأقساط (العملاء)
+  debtsDue: 0,
 });
 
 const dateRanges = [
@@ -829,15 +834,19 @@ const brideChecklistSales = ref({ total: 0, count: 0 });
 const dailySales = ref([]);
 const topProducts = ref([]);
 const recentOrders = ref([]);
-const upcomingDebts = ref([]); // ✅ تشمل ديون المشروع + الأقساط
+const upcomingDebts = ref([]);
 
 // Computed
-const cashBalance = computed(
-  () =>
-    stats.value.totalSales - stats.value.totalPurchases - totalExpenses.value,
-);
+const cashBalance = computed(() => {
+  // حساب الرصيد: إجمالي المبيعات - إجمالي المشتريات - إجمالي المصروفات
+  const totalSales = stats.value.totalSales || 0;
+  const totalPurchases = stats.value.totalPurchases || 0;
+  const totalExp = totalExpenses.value || 0;
+  return Math.round(totalSales - totalPurchases - totalExp);
+});
+
 const totalExpenses = computed(() =>
-  expensesList.value.reduce((sum, exp) => sum + (exp.amount || 0), 0),
+  expensesList.value.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0),
 );
 
 // ✅ دوال المصروفات مع Toast
@@ -926,22 +935,26 @@ const deleteExpense = async (id) => {
 // Helper functions
 const formatNumber = (num) => {
   if (!num && num !== 0) return "0";
-  return num.toLocaleString("ar-EG");
+  return Number(num).toLocaleString("ar-EG");
 };
+
 const formatDateTime = (date) => {
   if (!date) return "-";
   return new Date(date).toLocaleString("ar-EG");
 };
+
 const formatDate = (date) => {
   if (!date) return "-";
   return new Date(date).toLocaleDateString("ar-EG");
 };
+
 const getOrderItemsCount = (items) => {
   if (!items) return 0;
   if (Array.isArray(items)) return items.length;
   if (typeof items === "object") return Object.keys(items).length;
   return 0;
 };
+
 const getStatusName = (status) => {
   const names = {
     pending: "⏳ قيد الانتظار",
@@ -952,6 +965,7 @@ const getStatusName = (status) => {
   };
   return names[status] || status;
 };
+
 const getStatusClass = (status) => {
   const classes = {
     pending: "bg-yellow-100 text-yellow-700",
@@ -962,6 +976,7 @@ const getStatusClass = (status) => {
   };
   return classes[status] || "bg-gray-100";
 };
+
 const getDebtTypeName = (type) => {
   const types = {
     bank_loan: "قرض بنكي",
@@ -973,6 +988,7 @@ const getDebtTypeName = (type) => {
   };
   return types[type] || type;
 };
+
 const getDueDateClass = (dueDate) => {
   if (!dueDate) return "text-gray-500";
   const today = new Date();
@@ -983,6 +999,7 @@ const getDueDateClass = (dueDate) => {
   if (diffDays <= 7) return "text-orange-600 font-bold";
   return "text-green-600";
 };
+
 const getDueDateText = (dueDate) => {
   if (!dueDate) return "-";
   const today = new Date();
@@ -995,6 +1012,7 @@ const getDueDateText = (dueDate) => {
   if (diffDays <= 7) return `بعد ${diffDays} أيام`;
   return formatDate(dueDate);
 };
+
 const getExpenseTypeName = (type) => {
   const types = {
     rent: "🏢 إيجار",
@@ -1009,6 +1027,7 @@ const getExpenseTypeName = (type) => {
   };
   return types[type] || type;
 };
+
 const getExpenseTypeClass = (type) => {
   const classes = {
     rent: "bg-orange-100 text-orange-700",
@@ -1022,6 +1041,97 @@ const getExpenseTypeClass = (type) => {
     other: "bg-gray-100 text-gray-700",
   };
   return classes[type] || "bg-gray-100 text-gray-700";
+};
+
+const navigateTo = (path) => {
+  navigateTo(path);
+};
+
+// ✅ دالة جلب المشتريات حسب الفترة المحددة (باستخدام total_price من قاعدة البيانات)
+const loadTotalPurchases = async (startDate, endDate) => {
+  try {
+    // جلب مشتريات الفترة المحددة
+    const { data: purchases, error } = await supabase
+      .from("purchases")
+      .select("id, total_price, purchase_date")
+      .gte("purchase_date", startDate.toISOString())
+      .lte("purchase_date", endDate.toISOString());
+
+    if (error) throw error;
+
+    let totalPurchases = 0;
+    let purchasesCount = purchases?.length || 0;
+
+    if (purchases && purchases.length > 0) {
+      totalPurchases = purchases.reduce((sum, purchase) => {
+        return sum + (Number(purchase.total_price) || 0);
+      }, 0);
+    }
+
+    totalPurchases = Math.round(totalPurchases);
+
+    return {
+      totalPurchases,
+      purchasesCount,
+      purchases
+    };
+  } catch (error) {
+    console.error("❌ خطأ في جلب المشتريات:", error);
+    return {
+      totalPurchases: 0,
+      purchasesCount: 0,
+      purchases: []
+    };
+  }
+};
+
+// ✅ تعديل دالة تحديد الفترات
+const getDateRangeForPeriod = () => {
+  const now = new Date();
+  let startDate = new Date();
+  let endDate = new Date();
+  endDate.setHours(23, 59, 59, 999);
+  
+  switch (selectedDateRange.value) {
+    case "today":
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "yesterday":
+      startDate.setDate(now.getDate() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setDate(now.getDate() - 1);
+      endDate.setHours(23, 59, 59, 999);
+      break;
+    case "week":
+      startDate.setDate(now.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "month":
+      startDate.setMonth(now.getMonth() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "thisMonth":
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "thisYear":
+      startDate = new Date(now.getFullYear(), 0, 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "year":
+      startDate.setFullYear(now.getFullYear() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "sinceBeginning":
+      // ✅ من بداية البيانات (تاريخ قديم جداً)
+      startDate = new Date(2000, 0, 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    default:
+      startDate.setDate(now.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+  }
+  return { startDate, endDate };
 };
 
 // ✅ دوال جلب البيانات
@@ -1048,10 +1158,10 @@ const loadInventoryValue = async () => {
     let purchaseValue = 0,
       saleValue = 0;
     products.forEach((product) => {
-      const stock = product.stock || 0;
+      const stock = Number(product.stock) || 0;
       if (stock > 0) {
-        purchaseValue += Math.round((product.purchase_price || 0) * stock);
-        saleValue += Math.round((product.price || 0) * stock);
+        purchaseValue += Math.round((Number(product.purchase_price) || 0) * stock);
+        saleValue += Math.round((Number(product.price) || 0) * stock);
       }
     });
 
@@ -1080,17 +1190,17 @@ const loadProjectDebts = async () => {
 
     if (debts) {
       debts.forEach((debt) => {
-        totalRemaining += debt.remaining_amount || 0;
+        totalRemaining += Number(debt.remaining_amount) || 0;
         const dueDate = new Date(debt.due_date);
         if (dueDate < today) {
-          lateAmount += debt.remaining_amount || 0;
+          lateAmount += Number(debt.remaining_amount) || 0;
         }
       });
     }
 
     projectDebts.value = {
-      total: totalRemaining,
-      late: lateAmount,
+      total: Math.round(totalRemaining),
+      late: Math.round(lateAmount),
       count: debts?.length || 0,
     };
 
@@ -1125,7 +1235,7 @@ const loadUpcomingDebts = async () => {
         upcoming.push({
           id: debt.id,
           creditor_name: debt.creditor_name,
-          remaining_amount: debt.remaining_amount,
+          remaining_amount: Math.round(Number(debt.remaining_amount) || 0),
           due_date: debt.due_date,
           debt_type: debt.debt_type,
         });
@@ -1152,9 +1262,9 @@ const loadUpcomingDebts = async () => {
         upcoming.push({
           id: payment.contract_id,
           creditor_name: payment.installment_contracts?.customer_name || "عميل",
-          remaining_amount: payment.amount,
+          remaining_amount: Math.round(Number(payment.amount) || 0),
           due_date: payment.due_date,
-          debt_type: null, // ليس من ديون المشروع
+          debt_type: null,
         });
       });
     }
@@ -1165,53 +1275,6 @@ const loadUpcomingDebts = async () => {
   } catch (error) {
     console.error("Error loading upcoming debts:", error);
   }
-};
-
-// دوال الرسم البياني والفترات
-const getDateRangeForPeriod = () => {
-  const now = new Date();
-  let startDate = new Date();
-  let endDate = new Date();
-  endDate.setHours(23, 59, 59, 999);
-  switch (selectedDateRange.value) {
-    case "today":
-      startDate.setHours(0, 0, 0, 0);
-      break;
-    case "yesterday":
-      startDate.setDate(now.getDate() - 1);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setDate(now.getDate() - 1);
-      endDate.setHours(23, 59, 59, 999);
-      break;
-    case "week":
-      startDate.setDate(now.getDate() - 7);
-      startDate.setHours(0, 0, 0, 0);
-      break;
-    case "month":
-      startDate.setMonth(now.getMonth() - 1);
-      startDate.setHours(0, 0, 0, 0);
-      break;
-    case "thisMonth":
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      startDate.setHours(0, 0, 0, 0);
-      break;
-    case "thisYear":
-      startDate = new Date(now.getFullYear(), 0, 1);
-      startDate.setHours(0, 0, 0, 0);
-      break;
-    case "year":
-      startDate.setFullYear(now.getFullYear() - 1);
-      startDate.setHours(0, 0, 0, 0);
-      break;
-    case "sinceBeginning":
-      startDate = new Date(2024, 0, 1);
-      startDate.setHours(0, 0, 0, 0);
-      break;
-    default:
-      startDate.setDate(now.getDate() - 7);
-      startDate.setHours(0, 0, 0, 0);
-  }
-  return { startDate, endDate };
 };
 
 const getDateRangeText = () => {
@@ -1225,349 +1288,339 @@ const getDateRangeText = () => {
 const loadPeriodDetails = async () => {
   const { startDate, endDate } = getDateRangeForPeriod();
 
-  // ✅ 1. جلب طلبات المعرض من orders
-  const { data: ordersData } = await supabase
-    .from("orders")
-    .select("*")
-    .gte("order_date", startDate.toISOString())
-    .lte("order_date", endDate.toISOString());
+  try {
+    // 1. جلب طلبات المعرض من orders
+    const { data: ordersData } = await supabase
+      .from("orders")
+      .select("*")
+      .gte("order_date", startDate.toISOString())
+      .lte("order_date", endDate.toISOString());
 
-  // ✅ 2. جلب طلبات الموقع من customer_orders
-  const { data: customerOrdersData } = await supabase
-    .from("customer_orders")
-    .select("*")
-    .gte("order_date", startDate.toISOString())
-    .lte("order_date", endDate.toISOString());
+    // 2. جلب طلبات الموقع من customer_orders
+    const { data: customerOrdersData } = await supabase
+      .from("customer_orders")
+      .select("*")
+      .gte("order_date", startDate.toISOString())
+      .lte("order_date", endDate.toISOString());
 
-  // ✅ 3. دمج الطلبات
-  const orders = [...(ordersData || []), ...(customerOrdersData || [])];
+    // 3. دمج الطلبات
+    const orders = [...(ordersData || []), ...(customerOrdersData || [])];
 
-  // ✅ 4. جلب المشتريات (مع total_price مباشرة)
-  const { data: purchases } = await supabase
-    .from("purchases")
-    .select("id, total_price, purchase_date")
-    .gte("purchase_date", startDate.toISOString())
-    .lte("purchase_date", endDate.toISOString());
+    // ✅ 4. جلب مشتريات الفترة المحددة
+    const { totalPurchases, purchasesCount } = await loadTotalPurchases(startDate, endDate);
 
-  // حساب إجمالي المشتريات من total_price (أعداد صحيحة)
-  const totalPurchases = Math.round(
-    purchases?.reduce((sum, p) => {
-      return sum + (Number(p.total_price) || 0);
-    }, 0) || 0,
-  );
+    // 5. جلب المصروفات
+    const { data: expenses } = await supabase
+      .from("expenses")
+      .select("*")
+      .gte("expense_date", startDate.toISOString().split("T")[0])
+      .lte("expense_date", endDate.toISOString().split("T")[0]);
 
-  // ✅ عدد الفواتير
-  const purchasesCount = purchases?.length || 0;
+    // 6. حساب المبيعات حسب النوع
+    const onlineOrders = orders?.filter((o) => o.sale_type === "online") || [];
+    const offlineOrders = orders?.filter((o) => o.sale_type === "offline") || [];
+    const brideOrders = orders?.filter((o) => o.notes && o.notes.includes("كشف عروسة")) || [];
 
-  // ✅ 5. جلب المصروفات
-  const { data: expenses } = await supabase
-    .from("expenses")
-    .select("*")
-    .gte("expense_date", startDate.toISOString().split("T")[0])
-    .lte("expense_date", endDate.toISOString().split("T")[0]);
+    const onlineSales = Math.round(
+      onlineOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0)
+    );
+    const offlineSales = Math.round(
+      offlineOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0)
+    );
+    const brideSales = Math.round(
+      brideOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0)
+    );
+    const totalSales = Math.round(onlineSales + offlineSales);
 
-  // ✅ 6. حساب المبيعات حسب النوع (أعداد صحيحة)
-  const onlineOrders = orders?.filter((o) => o.sale_type === "online") || [];
-  const offlineOrders = orders?.filter((o) => o.sale_type === "offline") || [];
-  const brideOrders =
-    orders?.filter((o) => o.notes && o.notes.includes("كشف عروسة")) || [];
+    // 7. حساب المصروفات
+    const totalExpensesPeriod = Math.round(
+      expenses?.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) || 0
+    );
 
-  const onlineSales = Math.round(
-    onlineOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
-  );
-  const offlineSales = Math.round(
-    offlineOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
-  );
-  const brideSales = Math.round(
-    brideOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
-  );
-  const totalSales = Math.round(onlineSales + offlineSales);
+    // 8. حساب صافي الربح
+    let profit = 0;
+    let profitMargin = 0;
 
-  // ✅ 7. حساب المصروفات (أعداد صحيحة)
-  const totalExpensesPeriod = Math.round(
-    expenses?.reduce((sum, e) => sum + (Number(e.amount) || 0), 0) || 0,
-  );
+    if (totalSales > 0) {
+      let cogs = 0;
 
-  // ✅ 8. حساب صافي الربح
-  let profit = 0;
-  let profitMargin = 0;
+      // جلب أسعار الشراء للمنتجات
+      const { data: products } = await supabase
+        .from("products")
+        .select("id, purchase_price");
 
-  if (totalSales > 0) {
-    let cogs = 0;
+      const productMap = {};
+      products?.forEach((p) => {
+        productMap[p.id] = Number(p.purchase_price) || 0;
+      });
 
-    const { data: products } = await supabase
-      .from("products")
-      .select("id, purchase_price");
+      orders?.forEach((order) => {
+        if (order.items && Array.isArray(order.items)) {
+          order.items.forEach((item) => {
+            const purchasePrice = productMap[item.product_id] || 0;
+            cogs += Math.round(purchasePrice * (Number(item.quantity) || 1));
+          });
+        }
+      });
 
-    const productMap = {};
-    products?.forEach((p) => {
-      productMap[p.id] = p.purchase_price || 0;
+      profit = Math.round(totalSales - cogs - totalExpensesPeriod);
+      profitMargin = totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
+    }
+
+    // 9. حساب عدد العملاء الفريدين
+    const uniqueCustomers = new Set();
+    orders?.forEach((order) => {
+      if (order.customer_email) {
+        uniqueCustomers.add(order.customer_email);
+      } else if (order.customer_phone) {
+        uniqueCustomers.add(order.customer_phone);
+      } else if (order.customer_name && order.customer_name !== "زائر") {
+        uniqueCustomers.add(order.customer_name);
+      }
     });
 
+    let totalItemsSold = 0;
     orders?.forEach((order) => {
       if (order.items && Array.isArray(order.items)) {
         order.items.forEach((item) => {
-          const purchasePrice = productMap[item.product_id] || 0;
-          cogs += Math.round(purchasePrice * (item.quantity || 1));
+          totalItemsSold += Number(item.quantity) || 1;
         });
       }
     });
 
-    profit = Math.round(totalSales - cogs - totalExpensesPeriod);
-    profitMargin =
-      totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
-  }
+    const avgOrder = orders?.length > 0 ? Math.round(totalSales / orders.length) : 0;
 
-  // ✅ 9. حساب عدد العملاء الفريدين
-  const uniqueCustomers = new Set();
-  orders?.forEach((order) => {
-    if (order.customer_email) {
-      uniqueCustomers.add(order.customer_email);
-    } else if (order.customer_phone) {
-      uniqueCustomers.add(order.customer_phone);
-    } else if (order.customer_name && order.customer_name !== "زائر") {
-      uniqueCustomers.add(order.customer_name);
+    // 10. جلب الديون المستحقة من installment_contracts
+    const { data: activeContracts } = await supabase
+      .from("installment_contracts")
+      .select("remaining_amount, status")
+      .eq("status", "active");
+
+    let debtsDueFromContracts = 0;
+    if (activeContracts && activeContracts.length > 0) {
+      debtsDueFromContracts = Math.round(
+        activeContracts.reduce((sum, contract) => {
+          return sum + (Number(contract.remaining_amount) || 0);
+        }, 0)
+      );
     }
-  });
 
-  let totalItemsSold = 0;
-  orders?.forEach((order) => {
-    if (order.items && Array.isArray(order.items)) {
-      order.items.forEach((item) => {
-        totalItemsSold += item.quantity || 1;
-      });
-    }
-  });
+    // ✅ تحديث periodStats
+    periodStats.value = {
+      totalSales,
+      totalPurchases,
+      profit,
+      profitMargin,
+      ordersCount: orders?.length || 0,
+      purchasesCount,
+      onlineSales,
+      onlineCount: onlineOrders.length,
+      avgOnlineOrder: onlineOrders.length > 0 ? Math.round(onlineSales / onlineOrders.length) : 0,
+      offlineSales,
+      offlineCount: offlineOrders.length,
+      avgOfflineOrder: offlineOrders.length > 0 ? Math.round(offlineSales / offlineOrders.length) : 0,
+      brideSales,
+      brideCount: brideOrders.length,
+      avgBrideValue: brideOrders.length > 0 ? Math.round(brideSales / brideOrders.length) : 0,
+      totalExpenses: totalExpensesPeriod,
+      expensesCount: expenses?.length || 0,
+      customersCount: uniqueCustomers.size,
+      totalItemsSold,
+      averageOrderValue: avgOrder,
+      debtsDue: debtsDueFromContracts,
+    };
 
-  const avgOrder =
-    orders?.length > 0 ? Math.round(totalSales / orders.length) : 0;
-
-  // ✅ 10. جلب الديون المستحقة من installment_contracts (العملاء)
-  const { data: activeContracts } = await supabase
-    .from("installment_contracts")
-    .select("remaining_amount, status")
-    .eq("status", "active");
-
-  let debtsDueFromContracts = 0;
-  if (activeContracts && activeContracts.length > 0) {
-    debtsDueFromContracts = Math.round(
-      activeContracts.reduce((sum, contract) => {
-        return sum + (Number(contract.remaining_amount) || 0);
-      }, 0)
-    );
+    console.log("✅ تم تحديث المشتريات (الفترة):", periodStats.value.totalPurchases);
+    console.log("✅ عدد فواتير الفترة:", periodStats.value.purchasesCount);
+    
+  } catch (error) {
+    console.error("❌ خطأ في تحميل تفاصيل الفترة:", error);
+    showToast("❌ حدث خطأ في تحميل البيانات", "error");
   }
-
-  periodStats.value = {
-    totalSales,
-    totalPurchases,
-    profit,
-    profitMargin,
-    ordersCount: orders?.length || 0,
-    purchasesCount,
-    onlineSales,
-    onlineCount: onlineOrders.length,
-    avgOnlineOrder:
-      onlineOrders.length > 0
-        ? Math.round(onlineSales / onlineOrders.length)
-        : 0,
-    offlineSales,
-    offlineCount: offlineOrders.length,
-    avgOfflineOrder:
-      offlineOrders.length > 0
-        ? Math.round(offlineSales / offlineOrders.length)
-        : 0,
-    brideSales,
-    brideCount: brideOrders.length,
-    avgBrideValue:
-      brideOrders.length > 0 ? Math.round(brideSales / brideOrders.length) : 0,
-    totalExpenses: totalExpensesPeriod,
-    expensesCount: expenses?.length || 0,
-    customersCount: uniqueCustomers.size,
-    totalItemsSold,
-    averageOrderValue: avgOrder,
-    debtsDue: debtsDueFromContracts, // ✅ دي بتاعة الأقساط (الزباين)
-  };
 };
 
 const loadDashboardData = async () => {
   const now = new Date();
   let startDate = new Date();
   if (selectedPeriod.value === "week") startDate.setDate(now.getDate() - 7);
-  else if (selectedPeriod.value === "month")
-    startDate.setMonth(now.getMonth() - 1);
+  else if (selectedPeriod.value === "month") startDate.setMonth(now.getMonth() - 1);
   else startDate.setFullYear(now.getFullYear() - 1);
   startDate.setHours(0, 0, 0, 0);
 
-  // ✅ 1. جلب طلبات المعرض من orders
-  const { data: ordersData } = await supabase
-    .from("orders")
-    .select("*")
-    .gte("order_date", startDate.toISOString())
-    .order("order_date", { ascending: false });
+  try {
+    // 1. جلب طلبات المعرض من orders
+    const { data: ordersData } = await supabase
+      .from("orders")
+      .select("*")
+      .gte("order_date", startDate.toISOString())
+      .order("order_date", { ascending: false });
 
-  // ✅ 2. جلب طلبات الموقع من customer_orders
-  const { data: customerOrdersData } = await supabase
-    .from("customer_orders")
-    .select("*")
-    .gte("order_date", startDate.toISOString())
-    .order("order_date", { ascending: false });
+    // 2. جلب طلبات الموقع من customer_orders
+    const { data: customerOrdersData } = await supabase
+      .from("customer_orders")
+      .select("*")
+      .gte("order_date", startDate.toISOString())
+      .order("order_date", { ascending: false });
 
-  // ✅ 3. دمج الطلبات
-  const allOrders = [...(ordersData || []), ...(customerOrdersData || [])];
+    // 3. دمج الطلبات
+    const allOrders = [...(ordersData || []), ...(customerOrdersData || [])];
+    allOrders.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
 
-  // ترتيب حسب التاريخ
-  allOrders.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
+    // 4. جلب المشتريات
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+    const { totalPurchases, purchasesCount } = await loadTotalPurchases(startDate, endDate);
 
-  // ✅ 4. باقي الكود بنفس الشكل بس باستخدام allOrders بدلاً من orders
-  let orders = allOrders || [];
-  if (filterSaleType.value === "normal")
-    orders = orders.filter((o) => !o.notes || !o.notes.includes("كشف عروسة"));
-  else if (filterSaleType.value === "bride")
-    orders = orders.filter((o) => o.notes && o.notes.includes("كشف عروسة"));
+    let orders = allOrders || [];
+    if (filterSaleType.value === "normal")
+      orders = orders.filter((o) => !o.notes || !o.notes.includes("كشف عروسة"));
+    else if (filterSaleType.value === "bride")
+      orders = orders.filter((o) => o.notes && o.notes.includes("كشف عروسة"));
 
-  // ✅ 5. جلب المشتريات (نفسها)
-  const { data: purchases } = await supabase
-    .from("purchases")
-    .select("*")
-    .gte("purchase_date", startDate.toISOString());
+    // 5. حساب المبيعات
+    const brideOrders = allOrders.filter(
+      (o) => o.notes && o.notes.includes("كشف عروسة"),
+    );
+    brideChecklistSales.value = {
+      total: brideOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
+      count: brideOrders.length,
+    };
 
-  // ✅ 6. باقي الحسابات بنفس الشكل
-  const brideOrders = allOrders.filter(
-    (o) => o.notes && o.notes.includes("كشف عروسة"),
-  );
-  brideChecklistSales.value = {
-    total: brideOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
-    count: brideOrders.length,
-  };
-
-  const totalSales = Math.round(
-    orders.reduce((sum, o) => sum + (o.total_price || 0), 0),
-  );
-  const totalPurchases = Math.round(
-    purchases?.reduce((sum, p) => sum + (p.total_price || 0), 0) || 0,
-  );
-
-  const onlineOrders = orders.filter((o) => o.sale_type === "online");
-  const offlineOrders = orders.filter((o) => o.sale_type === "offline");
-
-  const onlineSales = Math.round(
-    onlineOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
-  );
-  const offlineSales = Math.round(
-    offlineOrders.reduce((sum, o) => sum + (o.total_price || 0), 0),
-  );
-
-  // ✅ صافي الربح = 0 لو مفيش مبيعات
-  let profit = 0;
-  let profitMargin = 0;
-
-  if (totalSales > 0) {
-    profit = Math.round(totalSales - totalPurchases);
-    profitMargin =
-      totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
-  }
-
-  stats.value = {
-    totalSales,
-    totalPurchases,
-    ordersCount: orders.length,
-    purchasesCount: purchases?.length || 0,
-    profit,
-    profitMargin,
-    onlineSales,
-    onlineCount: onlineOrders.length,
-    offlineSales,
-    offlineCount: offlineOrders.length,
-  };
-
-  // ✅ 7. المبيعات اليومية (آخر 7 أيام)
-  const last7Days = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    date.setHours(0, 0, 0, 0);
-    const dateStr = date.toISOString().split("T")[0];
-
-    const dayOrders = allOrders.filter((o) =>
-      o.order_date?.startsWith(dateStr),
+    const totalSales = Math.round(
+      orders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
     );
 
-    const onlineTotal = Math.round(
-      dayOrders
-        .filter((o) => o.sale_type === "online")
-        .reduce((sum, o) => sum + (o.total_price || 0), 0),
+    const onlineOrders = orders.filter((o) => o.sale_type === "online");
+    const offlineOrders = orders.filter((o) => o.sale_type === "offline");
+
+    const onlineSales = Math.round(
+      onlineOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
     );
-    const offlineNormalTotal = Math.round(
-      dayOrders
-        .filter(
-          (o) =>
-            o.sale_type === "offline" &&
-            (!o.notes || !o.notes.includes("كشف عروسة")),
-        )
-        .reduce((sum, o) => sum + (o.total_price || 0), 0),
-    );
-    const offlineBrideTotal = Math.round(
-      dayOrders
-        .filter(
-          (o) =>
-            o.sale_type === "offline" &&
-            o.notes &&
-            o.notes.includes("كشف عروسة"),
-        )
-        .reduce((sum, o) => sum + (o.total_price || 0), 0),
+    const offlineSales = Math.round(
+      offlineOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
     );
 
-    last7Days.push({
-      date: dateStr,
-      label: date.toLocaleDateString("ar-EG", { weekday: "short" }),
-      online: onlineTotal,
-      offlineNormal: offlineNormalTotal,
-      offlineBride: offlineBrideTotal,
-      offline: Math.round(offlineNormalTotal + offlineBrideTotal),
-      total: Math.round(onlineTotal + offlineNormalTotal + offlineBrideTotal),
-    });
-  }
-  dailySales.value = last7Days;
+    // 6. حساب الربح
+    let profit = 0;
+    let profitMargin = 0;
+    if (totalSales > 0) {
+      profit = Math.round(totalSales - totalPurchases);
+      profitMargin = totalSales > 0 ? ((profit / totalSales) * 100).toFixed(1) : 0;
+    }
 
-  // ✅ 8. أعلى المنتجات مبيعاً
-  const productSales = new Map();
-  orders.forEach((order) => {
-    if (order.items && Array.isArray(order.items)) {
-      order.items.forEach((item) => {
-        if (!productSales.has(item.product_id))
-          productSales.set(item.product_id, {
-            total_quantity: 0,
-            total_revenue: 0,
-            product_name: item.name,
-          });
-        const data = productSales.get(item.product_id);
-        data.total_quantity += item.quantity || 1;
-        data.total_revenue += Math.round(
-          (item.price || 0) * (item.quantity || 1),
-        );
-        data.product_name = item.name;
+    stats.value = {
+      totalSales,
+      totalPurchases,
+      ordersCount: orders.length,
+      purchasesCount,
+      profit,
+      profitMargin,
+      onlineSales,
+      onlineCount: onlineOrders.length,
+      offlineSales,
+      offlineCount: offlineOrders.length,
+    };
+
+    // 7. المبيعات اليومية
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      const dateStr = date.toISOString().split("T")[0];
+
+      const dayOrders = allOrders.filter((o) =>
+        o.order_date?.startsWith(dateStr),
+      );
+
+      const onlineTotal = Math.round(
+        dayOrders
+          .filter((o) => o.sale_type === "online")
+          .reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
+      );
+      const offlineNormalTotal = Math.round(
+        dayOrders
+          .filter(
+            (o) =>
+              o.sale_type === "offline" &&
+              (!o.notes || !o.notes.includes("كشف عروسة")),
+          )
+          .reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
+      );
+      const offlineBrideTotal = Math.round(
+        dayOrders
+          .filter(
+            (o) =>
+              o.sale_type === "offline" &&
+              o.notes &&
+              o.notes.includes("كشف عروسة"),
+          )
+          .reduce((sum, o) => sum + (Number(o.total_price) || 0), 0),
+      );
+
+      last7Days.push({
+        date: dateStr,
+        label: date.toLocaleDateString("ar-EG", { weekday: "short" }),
+        online: onlineTotal,
+        offlineNormal: offlineNormalTotal,
+        offlineBride: offlineBrideTotal,
+        offline: Math.round(offlineNormalTotal + offlineBrideTotal),
+        total: Math.round(onlineTotal + offlineNormalTotal + offlineBrideTotal),
       });
     }
-  });
+    dailySales.value = last7Days;
 
-  topProducts.value = Array.from(productSales.entries())
-    .map(([product_id, data]) => ({ product_id, ...data }))
-    .sort((a, b) => b.total_quantity - a.total_quantity)
-    .slice(0, 5);
+    // 8. أعلى المنتجات مبيعاً
+    const productSales = new Map();
+    orders.forEach((order) => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item) => {
+          if (!productSales.has(item.product_id))
+            productSales.set(item.product_id, {
+              total_quantity: 0,
+              total_revenue: 0,
+              product_name: item.name,
+            });
+          const data = productSales.get(item.product_id);
+          data.total_quantity += Number(item.quantity) || 1;
+          data.total_revenue += Math.round(
+            (Number(item.price) || 0) * (Number(item.quantity) || 1),
+          );
+          data.product_name = item.name;
+        });
+      }
+    });
 
-  recentOrders.value = orders.slice(0, 10);
+    topProducts.value = Array.from(productSales.entries())
+      .map(([product_id, data]) => ({ product_id, ...data }))
+      .sort((a, b) => b.total_quantity - a.total_quantity)
+      .slice(0, 5);
 
-  // ✅ 9. جلب ديون المشروع والعملاء
-  await loadProjectDebts();
-  await loadInventoryValue();
-  await nextTick();
-  drawChart();
+    recentOrders.value = orders.slice(0, 10);
+
+    // 9. جلب ديون المشروع والعملاء
+    await loadProjectDebts();
+    await loadInventoryValue();
+    await nextTick();
+    drawChart();
+
+  } catch (error) {
+    console.error("❌ خطأ في تحميل بيانات لوحة التحكم:", error);
+    showToast("❌ حدث خطأ في تحميل البيانات", "error");
+  }
 };
 
 const drawChart = () => {
   const ctx = document.getElementById("salesChart")?.getContext("2d");
   if (!ctx) return;
   if (salesChart) salesChart.destroy();
+  
+  // تحقق من وجود مكتبة Chart.js
+  if (typeof Chart === 'undefined') {
+    console.warn("Chart.js not loaded yet");
+    return;
+  }
+  
   salesChart = new Chart(ctx, {
     type: "bar",
     data: {
@@ -1644,12 +1697,15 @@ onMounted(() => {
   loadExpenses();
   loadDashboardData();
   loadPeriodDetails();
+  
+  // تحميل Chart.js
   const script = document.createElement("script");
   script.src = "https://cdn.jsdelivr.net/npm/chart.js";
   script.onload = () => {
     loadDashboardData();
   };
   document.head.appendChild(script);
+  
   window.addEventListener("resize", () => {
     if (salesChart) {
       salesChart.options.plugins.legend.labels.font.size =
