@@ -1,75 +1,47 @@
-# Nuxt Minimal Starter
+# Electrical Store
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Full-featured e-commerce platform for electrical products, built with Nuxt.js and Vue.js.
 
-## Setup
+**Live Demo:** [electrical-store-nine.vercel.app](https://electrical-store-nine.vercel.app)
 
-Make sure to install dependencies:
+---
+
+### Overview
+
+E-commerce application featuring real-time inventory tracking, integrated Supabase authentication, and a secure functional checkout pipeline.
+
+---
+
+### Features
+
+- Real-time inventory tracking
+- Supabase authentication
+- Secure checkout pipeline
+- Responsive product listing and details
+- Clean, modern UI
+
+---
+
+### Tech Stack
+
+- **Nuxt.js** · **Vue.js** · **Pinia**
+- **Supabase** (Auth & Backend)
+- HTML5 · CSS3 · JavaScript
+- Vercel
+
+---
+
+### Getting Started
 
 ```bash
-# npm
 npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
 npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-# npm
 npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
 ```
 
-Locally preview production build:
+---
 
-```bash
-# npm
-npm run preview
+### Author
 
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+**Eslam Abosife** — Vue.js Front-End Developer  
+[GitHub](https://github.com/eslam1abosife) · [Portfolio](https://eslam-abosife-profile-two.vercel.app)
