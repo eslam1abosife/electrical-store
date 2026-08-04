@@ -1,23 +1,31 @@
 # Electrical Store
 
-Modern e-commerce web application for electrical products, built with Vue.js / Nuxt.
+Full-featured e-commerce platform for electrical products, built with Nuxt.js and Vue.js.
 
 **Live Demo:** [electrical-store-nine.vercel.app](https://electrical-store-nine.vercel.app)
 
 ---
 
+### Overview
+
+E-commerce application featuring real-time inventory tracking, integrated Supabase authentication, and a secure functional checkout pipeline.
+
+---
+
 ### Features
 
-- Clean product listing and product details
-- Fully responsive design
-- Fast performance
-- Modern UI focused on user experience
+- Real-time inventory tracking
+- Supabase authentication
+- Secure checkout pipeline
+- Responsive product listing and details
+- Clean, modern UI
 
 ---
 
 ### Tech Stack
 
-- Vue.js / Nuxt
+- **Nuxt.js** · **Vue.js** · **Pinia**
+- **Supabase** (Auth & Backend)
 - HTML5 · CSS3 · JavaScript
 - Vercel
 
@@ -35,5 +43,5 @@ npm run build
 
 ### Author
 
-**Eslam Abosife** — Front-End Developer  
+**Eslam Abosife** — Vue.js Front-End Developer  
 [GitHub](https://github.com/eslam1abosife) · [Portfolio](https://eslam-abosife-profile-two.vercel.app)
