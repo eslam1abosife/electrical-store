@@ -1,4 +1,4 @@
-# Electrical Store
+# Electrical Store. 
 
 Full-featured e-commerce platform for electrical products, built with Nuxt.js and Vue.js.
 
